@@ -30,8 +30,10 @@ The player controls a ninja who stays horizontally stationary in the centre of t
 - 2D only; desktop-first.
 - Compatibility renderer.
 - Logical game resolution: 640 × 360, with a 16:9 aspect ratio.
-- Scale automatically to the window or display while preserving aspect ratio.
-- Use integer scaling and nearest-neighbour filtering for pixel art wherever practical.
+- Scale automatically to the largest available 16:9 area of the window or display.
+- Use fractional viewport scaling and nearest-neighbour texture filtering.
+- Integer scaling occurs naturally at exact multiples such as 1280 × 720 and 1920 × 1080; do not enforce strict integer scaling.
+- Use letterboxing/pillarboxing when the window or display aspect ratio is not 16:9.
 - Use Git for version control.
 
 ## Player actions
