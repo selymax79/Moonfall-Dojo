@@ -23,6 +23,17 @@ window/stretch/mode="viewport"
 window/stretch/aspect="keep"
 window/stretch/scale_mode="fractional"
 
+[input]
+
+turn_left={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194319)]
+}
+turn_right={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194321)]
+}
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

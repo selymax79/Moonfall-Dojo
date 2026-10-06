@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+
+[node name="Player" type="Node2D"]
+script = ExtResource("1_player")
+
+[node name="Visuals" type="Node2D" parent="."]
+
+[node name="HeadOutline" type="Polygon2D" parent="Visuals"]
+color = Color(0.36, 0.40, 0.48, 1)
+polygon = PackedVector2Array(-8, -40, 8, -40, 8, -26, -8, -26)
+
+[node name="Head" type="Polygon2D" parent="Visuals"]
+color = Color(0.025, 0.03, 0.045, 1)
+polygon = PackedVector2Array(-7, -39, 7, -39, 7, -27, -7, -27)
+
+[node name="TorsoOutline" type="Polygon2D" parent="Visuals"]
+color = Color(0.36, 0.40, 0.48, 1)
+polygon = PackedVector2Array(-7, -26, 7, -26, 7, -12, -7, -12)
+
+[node name="Torso" type="Polygon2D" parent="Visuals"]
+color = Color(0.025, 0.03, 0.045, 1)
+polygon = PackedVector2Array(-6, -25, 6, -25, 6, -13, -6, -13)
+
+[node name="LeftArmOutline" type="Polygon2D" parent="Visuals"]
+color = Color(0.36, 0.40, 0.48, 1)
+polygon = PackedVector2Array(-11, -25, -7, -25, -7, -12, -11, -12)
+
+[node name="LeftArm" type="Polygon2D" parent="Visuals"]
+color = Color(0.025, 0.03, 0.045, 1)
+polygon = PackedVector2Array(-10, -24, -8, -24, -8, -13, -10, -13)
+
+[node name="RightArmOutline" type="Polygon2D" parent="Visuals"]
+color = Color(0.36, 0.40, 0.48, 1)
+polygon = PackedVector2Array(7, -25, 11, -25, 11, -12, 7, -12)
+
+[node name="RightArm" type="Polygon2D" parent="Visuals"]
+color = Color(0.025, 0.03, 0.045, 1)
+polygon = PackedVector2Array(8, -24, 10, -24, 10, -13, 8, -13)
+
+[node name="LeftLegOutline" type="Polygon2D" parent="Visuals"]
+color = Color(0.36, 0.40, 0.48, 1)
+polygon = PackedVector2Array(-7, -12, -1, -12, -1, 0, -7, 0)
+
+[node name="LeftLeg" type="Polygon2D" parent="Visuals"]
+color = Color(0.025, 0.03, 0.045, 1)
+polygon = PackedVector2Array(-6, -11, -2, -11, -2, -1, -6, -1)
+
+[node name="RightLegOutline" type="Polygon2D" parent="Visuals"]
+color = Color(0.36, 0.40, 0.48, 1)
+polygon = PackedVector2Array(1, -12, 7, -12, 7, 0, 1, 0)
+
+[node name="RightLeg" type="Polygon2D" parent="Visuals"]
+color = Color(0.025, 0.03, 0.045, 1)
+polygon = PackedVector2Array(2, -11, 6, -11, 6, -1, 2, -1)
+
+[node name="Scarf" type="Polygon2D" parent="Visuals"]
+color = Color(0.8, 0.65, 0.28, 1)
+polygon = PackedVector2Array(-14, -32, -6, -32, -6, -29, -14, -29)
+
