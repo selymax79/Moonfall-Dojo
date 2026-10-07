@@ -3,7 +3,6 @@
 extends Area2D
 
 # Logical pixels and seconds. Crouch finishes early enough to be low before entering Kick range.
-const APPROACH_SPEED: float = 60.0
 const ATTACK_DISTANCE: float = 30.0
 const WINDUP_DURATION: float = 0.35
 const STRIKE_DURATION: float = 0.20
@@ -13,8 +12,8 @@ const CROUCH_HEIGHT_SCALE: float = 0.60
 const FIST_TRAVEL: float = 20.0
 const RECOVERY_DURATION: float = 0.25
 const RETRY_DELAY: float = 0.40
-# Begin the telegraph one wind-up's travel before the final strike position.
-const WINDUP_DISTANCE: float = APPROACH_SPEED * WINDUP_DURATION
+# Main supplies this before adding the scene; independent instances retain Level 1 speed.
+var movement_speed: float = 60.0
 
 enum Phase { APPROACH, WINDUP, STRIKE, RECOVERY, WAIT }
 var phase: Phase = Phase.APPROACH
@@ -37,12 +36,14 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 	if is_dead:
 		return
 	var strike_x: float = player_x + ATTACK_DISTANCE
+	# Scale travel distance, not telegraph time; Blue still crouches before entering Kick range.
+	var windup_distance: float = movement_speed * WINDUP_DURATION
 	var remaining: float = delta
 	# Carry leftover tick time into the next phase instead of losing it at each transition.
 	if phase == Phase.APPROACH:
-		var travel_time: float = maxf(0.0, position.x - strike_x - WINDUP_DISTANCE) / APPROACH_SPEED
+		var travel_time: float = maxf(0.0, position.x - strike_x - windup_distance) / movement_speed
 		var step: float = minf(remaining, travel_time)
-		position.x -= APPROACH_SPEED * step
+		position.x -= movement_speed * step
 		remaining -= step
 		if step < travel_time:
 			return
@@ -62,7 +63,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 		crouch_elapsed = minf(crouch_elapsed + step, CROUCH_DURATION)
 		remaining -= step
 		if phase == Phase.WINDUP:
-			position.x = move_toward(position.x, strike_x, APPROACH_SPEED * step)
+			position.x = move_toward(position.x, strike_x, movement_speed * step)
 		if phase_elapsed < duration and not is_equal_approx(phase_elapsed, duration):
 			break
 		phase_elapsed = 0.0

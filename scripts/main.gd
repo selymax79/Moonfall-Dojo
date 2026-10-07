@@ -4,6 +4,11 @@ extends Node2D
 
 const ASSASSIN_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn")]
 const ASSASSIN_START_POSITION := Vector2(560, 300)
+const BASE_APPROACH_SPEED: float = 60.0
+const APPROACH_SPEED_PER_LEVEL: float = 5.0
+# Speed plateaus at Level 9: a conservative cap with about 195 ms of theoretical Blue input opportunity.
+# This is a tuning limit, not a mathematical impossibility boundary; attack timings stay fixed.
+const MAX_APPROACH_SPEED: float = 100.0
 # A brief breathing space after a kill; negative means no spawn is pending.
 const NEXT_SPAWN_DELAY: float = 0.85
 const POINTS_PER_KILL: int = 100
@@ -51,6 +56,8 @@ func spawn_assassin() -> void:
 	if player.is_dead or is_instance_valid(active_assassin):
 		return
 	active_assassin = ASSASSIN_SCENES[encounter_rng.randi_range(0, 1)].instantiate()
+	# Snapshot this level's speed at spawn; later level changes never modify an existing enemy.
+	active_assassin.movement_speed = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
 	active_assassin.position = ASSASSIN_START_POSITION
 	add_child(active_assassin)
 	spawn_countdown = -1.0

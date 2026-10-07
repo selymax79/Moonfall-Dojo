@@ -3,7 +3,6 @@
 extends Area2D
 
 # Logical pixels and seconds. The final spacing lets Kick reach the body while Punch falls short.
-const APPROACH_SPEED: float = 60.0
 const ATTACK_DISTANCE: float = 38.0
 const WINDUP_DURATION: float = 0.35
 const STRIKE_DURATION: float = 0.20
@@ -12,8 +11,8 @@ const SWORD_DRAW_BACK: float = 24.0
 const SWORD_THRUST_END: float = -4.0
 const RECOVERY_DURATION: float = 0.25
 const RETRY_DELAY: float = 0.40
-# Begin the telegraph one wind-up's travel before the final strike position.
-const WINDUP_DISTANCE: float = APPROACH_SPEED * WINDUP_DURATION
+# Main supplies this before adding the scene; independent instances retain Level 1 speed.
+var movement_speed: float = 60.0
 
 enum Phase { APPROACH, WINDUP, STRIKE, RECOVERY, WAIT }
 var phase: Phase = Phase.APPROACH
@@ -30,12 +29,14 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 	if is_dead:
 		return
 	var strike_x: float = player_x + ATTACK_DISTANCE
+	# Faster enemies telegraph farther out, preserving the full wind-up while still advancing.
+	var windup_distance: float = movement_speed * WINDUP_DURATION
 	var remaining: float = delta
 	# Carry leftover tick time into the next phase instead of losing it at each transition.
 	if phase == Phase.APPROACH:
-		var travel_time: float = maxf(0.0, position.x - strike_x - WINDUP_DISTANCE) / APPROACH_SPEED
+		var travel_time: float = maxf(0.0, position.x - strike_x - windup_distance) / movement_speed
 		var step: float = minf(remaining, travel_time)
-		position.x -= APPROACH_SPEED * step
+		position.x -= movement_speed * step
 		remaining -= step
 		if step < travel_time:
 			return
@@ -54,7 +55,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 		phase_elapsed += step
 		remaining -= step
 		if phase == Phase.WINDUP:
-			position.x = move_toward(position.x, strike_x, APPROACH_SPEED * step)
+			position.x = move_toward(position.x, strike_x, movement_speed * step)
 		if phase_elapsed < duration and not is_equal_approx(phase_elapsed, duration):
 			break
 		phase_elapsed = 0.0
