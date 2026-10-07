@@ -1,7 +1,7 @@
 extends Node2D
 
 @onready var player = $Player
-@onready var assassin = $RedAssassin
+@onready var assassin = $Assassin
 
 
 func _physics_process(delta: float) -> void:

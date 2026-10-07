@@ -15,7 +15,8 @@ const JUMP_DURATION: float = 0.60
 const JUMP_HEIGHT: float = 55.0
 const DEATH_DURATION: float = 0.40
 const PUNCH_EXTENDED_SCALE: float = 1.5
-const KICK_EXTENDED_SCALE: float = 8.0 / 3.0
+const KICK_OUTLINE_EXTENDED = [Vector2(-3, 0), Vector2(10, -21), Vector2(32, -21), Vector2(32, -15), Vector2(10, -15), Vector2(3, 0)]
+const KICK_FILL_EXTENDED = [Vector2(-2, 0), Vector2(11, -20), Vector2(31, -20), Vector2(31, -16), Vector2(10, -16), Vector2(2, 0)]
 
 enum Action { NONE, PUNCH, KICK, DUCK, JUMP }
 
@@ -31,6 +32,8 @@ var death_arm_rotation: float
 var death_arm_scale: Vector2
 var death_leg_rotation: float
 var death_leg_scale: Vector2
+var kick_extension: float = 0.0
+var death_kick_extension: float = 0.0
 
 @onready var visuals: Node2D = $Visuals
 @onready var standing_visual_position: Vector2 = visuals.position
@@ -39,6 +42,10 @@ var death_leg_scale: Vector2
 @onready var punch_shape: CollisionShape2D = $AttackShapes/Punch
 @onready var kick_shape: CollisionShape2D = $AttackShapes/Kick
 @onready var hurtbox: CollisionShape2D = $Hurtbox/Body
+@onready var kick_outline: Polygon2D = $Visuals/KickLeg/RightLegOutline
+@onready var kick_fill: Polygon2D = $Visuals/KickLeg/RightLeg
+@onready var kick_outline_rest: PackedVector2Array = kick_outline.polygon
+@onready var kick_fill_rest: PackedVector2Array = kick_fill.polygon
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -106,7 +113,6 @@ func update_action(delta: float) -> void:
 		extension_duration = KICK_EXTENSION_DURATION
 		hold_duration = KICK_HOLD_DURATION
 		recovery_duration = KICK_RECOVERY_DURATION
-		extended_scale = KICK_EXTENDED_SCALE
 	elif current_action == Action.DUCK:
 		extension_duration = DUCK_CROUCH_DURATION
 		hold_duration = DUCK_HOLD_DURATION
@@ -125,6 +131,8 @@ func update_action(delta: float) -> void:
 	if current_action == Action.DUCK:
 		# Visuals is rooted at the feet, so vertical compression keeps them planted.
 		visuals.scale.y = lerpf(1.0, DUCK_HEIGHT_SCALE, extension)
+	elif current_action == Action.KICK:
+		update_kick_pose(extension)
 	else:
 		# Visuals mirrors the animated limb when facing left.
 		limb.rotation = -PI / 2.0 * extension
@@ -132,10 +140,24 @@ func update_action(delta: float) -> void:
 	if action_elapsed >= duration or is_equal_approx(action_elapsed, duration):
 		if current_action == Action.DUCK:
 			visuals.scale.y = 1.0
+		elif current_action == Action.KICK:
+			update_kick_pose(0.0)
 		else:
 			limb.rotation = 0.0
 			limb.scale = Vector2.ONE
 		current_action = Action.NONE
+
+
+func update_kick_pose(extension: float) -> void:
+	kick_extension = extension
+	var outline := PackedVector2Array()
+	var fill := PackedVector2Array()
+	# Bend at the knee while keeping the hip attached; the forward shin matches the hitbox.
+	for index in range(kick_outline_rest.size()):
+		outline.append(kick_outline_rest[index].lerp(KICK_OUTLINE_EXTENDED[index], extension))
+		fill.append(kick_fill_rest[index].lerp(KICK_FILL_EXTENDED[index], extension))
+	kick_outline.polygon = outline
+	kick_fill.polygon = fill
 
 
 func resolve_attack(enemy: Area2D) -> void:
@@ -176,6 +198,7 @@ func receive_hit() -> void:
 	death_arm_scale = punch_arm.scale
 	death_leg_rotation = kick_leg.rotation
 	death_leg_scale = kick_leg.scale
+	death_kick_extension = kick_extension
 
 
 func update_death(delta: float) -> void:
@@ -190,6 +213,7 @@ func update_death(delta: float) -> void:
 	punch_arm.scale = death_arm_scale.lerp(Vector2.ONE, eased)
 	kick_leg.rotation = lerpf(death_leg_rotation, 0.0, eased)
 	kick_leg.scale = death_leg_scale.lerp(Vector2.ONE, eased)
+	update_kick_pose(lerpf(death_kick_extension, 0.0, eased))
 
 
 func update_jump(delta: float) -> void:

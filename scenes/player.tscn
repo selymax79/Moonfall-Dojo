@@ -6,7 +6,7 @@
 size = Vector2(19.5, 4)
 
 [sub_resource type="RectangleShape2D" id="KickShape"]
-size = Vector2(32, 6)
+size = Vector2(22, 6)
 
 [sub_resource type="RectangleShape2D" id="BodyShape"]
 resource_local_to_scene = true
@@ -36,7 +36,7 @@ shape = SubResource("PunchShape")
 disabled = true
 
 [node name="Kick" type="CollisionShape2D" parent="AttackShapes"]
-position = Vector2(20, -12)
+position = Vector2(25, -30)
 shape = SubResource("KickShape")
 disabled = true
 
@@ -90,11 +90,11 @@ position = Vector2(4, -12)
 
 [node name="RightLegOutline" type="Polygon2D" parent="Visuals/KickLeg"]
 color = Color(0.36, 0.40, 0.48, 1)
-polygon = PackedVector2Array(-3, 0, 3, 0, 3, 12, -3, 12)
+polygon = PackedVector2Array(-3, 0, 3, 0, 3, 6, 3, 12, -3, 12, -3, 6)
 
 [node name="RightLeg" type="Polygon2D" parent="Visuals/KickLeg"]
 color = Color(0.025, 0.03, 0.045, 1)
-polygon = PackedVector2Array(-2, 1, 2, 1, 2, 11, -2, 11)
+polygon = PackedVector2Array(-2, 1, 2, 1, 2, 6, 2, 11, -2, 11, -2, 6)
 
 [node name="Scarf" type="Polygon2D" parent="Visuals"]
 color = Color(0.8, 0.65, 0.28, 1)
