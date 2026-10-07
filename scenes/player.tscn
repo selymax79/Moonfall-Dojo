@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 
@@ -8,8 +8,21 @@ size = Vector2(19.5, 4)
 [sub_resource type="RectangleShape2D" id="KickShape"]
 size = Vector2(32, 6)
 
+[sub_resource type="RectangleShape2D" id="BodyShape"]
+resource_local_to_scene = true
+size = Vector2(16, 40)
+
 [node name="Player" type="Node2D"]
 script = ExtResource("1_player")
+
+[node name="Hurtbox" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+
+[node name="Body" type="CollisionShape2D" parent="Hurtbox"]
+position = Vector2(0, -20)
+shape = SubResource("BodyShape")
 
 [node name="AttackShapes" type="Area2D" parent="."]
 collision_layer = 0

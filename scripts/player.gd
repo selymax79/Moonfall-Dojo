@@ -5,14 +5,15 @@ const PUNCH_EXTENSION_DURATION: float = 0.06
 const PUNCH_HOLD_DURATION: float = 0.08
 const PUNCH_RECOVERY_DURATION: float = 0.16
 const KICK_EXTENSION_DURATION: float = 0.08
-const KICK_HOLD_DURATION: float = 0.10
-const KICK_RECOVERY_DURATION: float = 0.22
+const KICK_HOLD_DURATION: float = 0.16
+const KICK_RECOVERY_DURATION: float = 0.16
 const DUCK_CROUCH_DURATION: float = 0.08
 const DUCK_HOLD_DURATION: float = 0.20
 const DUCK_RECOVERY_DURATION: float = 0.17
 const DUCK_HEIGHT_SCALE: float = 0.45
 const JUMP_DURATION: float = 0.60
 const JUMP_HEIGHT: float = 55.0
+const DEATH_DURATION: float = 0.40
 const PUNCH_EXTENDED_SCALE: float = 1.5
 const KICK_EXTENDED_SCALE: float = 8.0 / 3.0
 
@@ -22,6 +23,14 @@ var target_direction: float = 1.0
 var turn_progress: float = 1.0
 var current_action: Action = Action.NONE
 var action_elapsed: float = 0.0
+var is_dead: bool = false
+var death_elapsed: float = 0.0
+var death_start_position: Vector2
+var death_start_scale: Vector2
+var death_arm_rotation: float
+var death_arm_scale: Vector2
+var death_leg_rotation: float
+var death_leg_scale: Vector2
 
 @onready var visuals: Node2D = $Visuals
 @onready var standing_visual_position: Vector2 = visuals.position
@@ -29,11 +38,12 @@ var action_elapsed: float = 0.0
 @onready var kick_leg: Node2D = $Visuals/KickLeg
 @onready var punch_shape: CollisionShape2D = $AttackShapes/Punch
 @onready var kick_shape: CollisionShape2D = $AttackShapes/Kick
+@onready var hurtbox: CollisionShape2D = $Hurtbox/Body
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Discard inputs during the committed action; nothing is buffered.
-	if current_action != Action.NONE or event.is_echo():
+	if is_dead or current_action != Action.NONE or event.is_echo():
 		return
 	if event.is_action_pressed("punch"):
 		start_action(Action.PUNCH)
@@ -49,7 +59,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		target_direction = 1.0
 
 
-func _physics_process(delta: float) -> void:
+func advance_tick(delta: float) -> void:
+	if is_dead:
+		update_death(delta)
+		return
+	update_living_pose(delta)
+	# Keep the core body aligned with the visible jump/crouch, but not turn squashing.
+	hurtbox.position = visuals.position + Vector2(0.0, -20.0 * visuals.scale.y)
+	hurtbox.shape.size = Vector2(16.0, 40.0 * visuals.scale.y)
+
+
+func update_living_pose(delta: float) -> void:
 	if current_action != Action.NONE:
 		update_action(delta)
 		return
@@ -62,6 +82,8 @@ func _physics_process(delta: float) -> void:
 
 
 func start_action(action: Action) -> void:
+	if is_dead:
+		return
 	# A committed action completes a reversible turn in its requested direction.
 	turn_progress = target_direction
 	visuals.scale.x = target_direction
@@ -107,8 +129,6 @@ func update_action(delta: float) -> void:
 		# Visuals mirrors the animated limb when facing left.
 		limb.rotation = -PI / 2.0 * extension
 		limb.scale.y = lerpf(1.0, extended_scale, extension)
-	if (current_action == Action.PUNCH or current_action == Action.KICK) and action_elapsed >= extension_duration and action_elapsed < extension_duration + hold_duration:
-		check_attack_hits(punch_shape if current_action == Action.PUNCH else kick_shape)
 	if action_elapsed >= duration or is_equal_approx(action_elapsed, duration):
 		if current_action == Action.DUCK:
 			visuals.scale.y = 1.0
@@ -118,20 +138,58 @@ func update_action(delta: float) -> void:
 		current_action = Action.NONE
 
 
-func check_attack_hits(attack_shape: CollisionShape2D) -> void:
-	# Query only enemy hurtboxes. Facing mirrors the offset, not the shape's size.
-	var query := PhysicsShapeQueryParameters2D.new()
-	query.shape = attack_shape.shape
+func resolve_attack(enemy: Area2D) -> void:
+	if is_dead or enemy.is_dead:
+		return
+	var attack_shape: CollisionShape2D
+	var active_start: float
+	var active_end: float
+	if current_action == Action.PUNCH:
+		attack_shape = punch_shape
+		active_start = PUNCH_EXTENSION_DURATION
+		active_end = active_start + PUNCH_HOLD_DURATION
+	elif current_action == Action.KICK:
+		attack_shape = kick_shape
+		active_start = KICK_EXTENSION_DURATION
+		active_end = active_start + KICK_HOLD_DURATION
+	else:
+		return
+	if action_elapsed < active_start or action_elapsed >= active_end:
+		return
+	# Compare current transforms directly; no physics-server overlap cache lag.
 	var offset := attack_shape.position
 	offset.x *= target_direction
-	query.transform = Transform2D(0.0, to_global(offset))
-	query.collision_mask = 2
-	query.collide_with_areas = true
-	query.collide_with_bodies = false
-	for overlap in get_world_2d().direct_space_state.intersect_shape(query):
-		var hurtbox = overlap["collider"]
-		if hurtbox.has_method("receive_hit"):
-			hurtbox.receive_hit()
+	var attack_transform := Transform2D(0.0, to_global(offset))
+	var enemy_body: CollisionShape2D = enemy.get_node("Hurtbox")
+	if attack_shape.shape.collide(attack_transform, enemy_body.shape, enemy_body.global_transform):
+		enemy.receive_hit()
+
+
+func receive_hit() -> void:
+	if is_dead:
+		return
+	is_dead = true
+	current_action = Action.NONE
+	death_start_position = visuals.position
+	death_start_scale = visuals.scale
+	death_arm_rotation = punch_arm.rotation
+	death_arm_scale = punch_arm.scale
+	death_leg_rotation = kick_leg.rotation
+	death_leg_scale = kick_leg.scale
+
+
+func update_death(delta: float) -> void:
+	death_elapsed = minf(death_elapsed + delta, DEATH_DURATION)
+	var progress: float = death_elapsed / DEATH_DURATION
+	var eased: float = progress * progress * (3.0 - 2.0 * progress)
+	# Fall away from the right-side attacker. Keep the silhouette above the floor.
+	visuals.position = death_start_position.lerp(standing_visual_position + Vector2(0, -11), eased)
+	visuals.scale = death_start_scale.lerp(Vector2(1, 1), eased)
+	visuals.rotation = -PI / 2.0 * eased
+	punch_arm.rotation = lerpf(death_arm_rotation, 0.0, eased)
+	punch_arm.scale = death_arm_scale.lerp(Vector2.ONE, eased)
+	kick_leg.rotation = lerpf(death_leg_rotation, 0.0, eased)
+	kick_leg.scale = death_leg_scale.lerp(Vector2.ONE, eased)
 
 
 func update_jump(delta: float) -> void:
