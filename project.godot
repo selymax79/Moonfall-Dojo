@@ -25,6 +25,11 @@ window/stretch/scale_mode="fractional"
 
 [input]
 
+kick={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":88)]
+}
+
 punch={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":90)]
