@@ -11,10 +11,12 @@ const DUCK_CROUCH_DURATION: float = 0.08
 const DUCK_HOLD_DURATION: float = 0.20
 const DUCK_RECOVERY_DURATION: float = 0.17
 const DUCK_HEIGHT_SCALE: float = 0.45
+const JUMP_DURATION: float = 0.60
+const JUMP_HEIGHT: float = 55.0
 const PUNCH_EXTENDED_SCALE: float = 1.5
 const KICK_EXTENDED_SCALE: float = 8.0 / 3.0
 
-enum Action { NONE, PUNCH, KICK, DUCK }
+enum Action { NONE, PUNCH, KICK, DUCK, JUMP }
 
 var target_direction: float = 1.0
 var turn_progress: float = 1.0
@@ -22,6 +24,7 @@ var current_action: Action = Action.NONE
 var action_elapsed: float = 0.0
 
 @onready var visuals: Node2D = $Visuals
+@onready var standing_visual_position: Vector2 = visuals.position
 @onready var punch_arm: Node2D = $Visuals/PunchArm
 @onready var kick_leg: Node2D = $Visuals/KickLeg
 
@@ -36,6 +39,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		start_action(Action.KICK)
 	elif event.is_action_pressed("duck"):
 		start_action(Action.DUCK)
+	elif event.is_action_pressed("jump"):
+		start_action(Action.JUMP)
 	elif event.is_action_pressed("turn_left"):
 		target_direction = -1.0
 	elif event.is_action_pressed("turn_right"):
@@ -63,6 +68,10 @@ func start_action(action: Action) -> void:
 
 
 func update_action(delta: float) -> void:
+	if current_action == Action.JUMP:
+		update_jump(delta)
+		return
+
 	var limb: Node2D = punch_arm
 	var extension_duration: float = PUNCH_EXTENSION_DURATION
 	var hold_duration: float = PUNCH_HOLD_DURATION
@@ -102,4 +111,15 @@ func update_action(delta: float) -> void:
 		else:
 			limb.rotation = 0.0
 			limb.scale = Vector2.ONE
+		current_action = Action.NONE
+
+
+func update_jump(delta: float) -> void:
+	action_elapsed = minf(action_elapsed + delta, JUMP_DURATION)
+	var progress: float = action_elapsed / JUMP_DURATION
+	# A parabola starts at the floor, peaks halfway through, and returns to the floor.
+	var height_offset: float = 4.0 * JUMP_HEIGHT * progress * (1.0 - progress)
+	visuals.position = standing_visual_position + Vector2(0.0, -height_offset)
+	if action_elapsed >= JUMP_DURATION or is_equal_approx(action_elapsed, JUMP_DURATION):
+		visuals.position = standing_visual_position
 		current_action = Action.NONE
