@@ -27,6 +27,8 @@ var action_elapsed: float = 0.0
 @onready var standing_visual_position: Vector2 = visuals.position
 @onready var punch_arm: Node2D = $Visuals/PunchArm
 @onready var kick_leg: Node2D = $Visuals/KickLeg
+@onready var punch_shape: CollisionShape2D = $AttackShapes/Punch
+@onready var kick_shape: CollisionShape2D = $AttackShapes/Kick
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -47,7 +49,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		target_direction = 1.0
 
 
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if current_action != Action.NONE:
 		update_action(delta)
 		return
@@ -105,6 +107,8 @@ func update_action(delta: float) -> void:
 		# Visuals mirrors the animated limb when facing left.
 		limb.rotation = -PI / 2.0 * extension
 		limb.scale.y = lerpf(1.0, extended_scale, extension)
+	if (current_action == Action.PUNCH or current_action == Action.KICK) and action_elapsed >= extension_duration and action_elapsed < extension_duration + hold_duration:
+		check_attack_hits(punch_shape if current_action == Action.PUNCH else kick_shape)
 	if action_elapsed >= duration or is_equal_approx(action_elapsed, duration):
 		if current_action == Action.DUCK:
 			visuals.scale.y = 1.0
@@ -112,6 +116,22 @@ func update_action(delta: float) -> void:
 			limb.rotation = 0.0
 			limb.scale = Vector2.ONE
 		current_action = Action.NONE
+
+
+func check_attack_hits(attack_shape: CollisionShape2D) -> void:
+	# Query only enemy hurtboxes. Facing mirrors the offset, not the shape's size.
+	var query := PhysicsShapeQueryParameters2D.new()
+	query.shape = attack_shape.shape
+	var offset := attack_shape.position
+	offset.x *= target_direction
+	query.transform = Transform2D(0.0, to_global(offset))
+	query.collision_mask = 2
+	query.collide_with_areas = true
+	query.collide_with_bodies = false
+	for overlap in get_world_2d().direct_space_state.intersect_shape(query):
+		var hurtbox = overlap["collider"]
+		if hurtbox.has_method("receive_hit"):
+			hurtbox.receive_hit()
 
 
 func update_jump(delta: float) -> void:

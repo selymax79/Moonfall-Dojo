@@ -1,9 +1,31 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 
+[sub_resource type="RectangleShape2D" id="PunchShape"]
+size = Vector2(19.5, 4)
+
+[sub_resource type="RectangleShape2D" id="KickShape"]
+size = Vector2(32, 6)
+
 [node name="Player" type="Node2D"]
 script = ExtResource("1_player")
+
+[node name="AttackShapes" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 0
+monitoring = false
+monitorable = false
+
+[node name="Punch" type="CollisionShape2D" parent="AttackShapes"]
+position = Vector2(15.75, -23)
+shape = SubResource("PunchShape")
+disabled = true
+
+[node name="Kick" type="CollisionShape2D" parent="AttackShapes"]
+position = Vector2(20, -12)
+shape = SubResource("KickShape")
+disabled = true
 
 [node name="Visuals" type="Node2D" parent="."]
 
