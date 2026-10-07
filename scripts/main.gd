@@ -6,11 +6,19 @@ const ASSASSIN_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res
 const ASSASSIN_START_POSITION := Vector2(560, 300)
 # A brief breathing space after a kill; negative means no spawn is pending.
 const NEXT_SPAWN_DELAY: float = 0.85
+const POINTS_PER_KILL: int = 100
+const HANDLED_THREATS_PER_LEVEL: int = 4
+var score: int = 0
+var kills: int = 0
+var level: int = 1
 var spawn_countdown: float = -1.0
 var active_assassin = null
 var encounter_rng := RandomNumberGenerator.new()
 
 @onready var player = $Player
+@onready var score_label: Label = $HUD/RunStats/ScoreLabel
+@onready var kills_label: Label = $HUD/RunStats/KillsLabel
+@onready var level_label: Label = $HUD/RunStats/LevelLabel
 
 
 ## Randomise before entering the tree so tests can override the seed before the first spawn.
@@ -20,7 +28,15 @@ func _init() -> void:
 
 ## A fresh scene starts a fresh encounter without resetting any existing Player state.
 func _ready() -> void:
+	update_hud()
 	spawn_assassin()
+
+
+## Presentation reads the run counters; minimum padding expands naturally beyond six digits.
+func update_hud() -> void:
+	score_label.text = "Score %06d" % score
+	kills_label.text = "Kills %d" % kills
+	level_label.text = "Level %d" % level
 
 
 ## Temporary development convenience: reload the whole scene, even during actions or death.
@@ -60,6 +76,12 @@ func _physics_process(delta: float) -> void:
 	# Player hits always resolve first, including simultaneous valid strikes.
 	player.resolve_attack(active_assassin)
 	if active_assassin.is_dead:
+		# Award once here before clearing the reference, independently of deferred node removal.
+		kills += 1
+		score += POINTS_PER_KILL
+		# Kills are all handled threats for now; future dodges can contribute to this total.
+		level = 1 + floori(float(kills) / HANDLED_THREATS_PER_LEVEL)
+		update_hud()
 		# The flag is immediate; queue_free() happens later. Start counting on the next tick.
 		active_assassin = null
 		spawn_countdown = NEXT_SPAWN_DELAY

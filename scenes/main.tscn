@@ -8,3 +8,34 @@ script = ExtResource("3_main")
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 position = Vector2(320, 300)
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="RunStats" type="VBoxContainer" parent="HUD"]
+offset_left = 12.0
+offset_top = 12.0
+offset_right = 172.0
+offset_bottom = 80.0
+mouse_filter = 2
+theme_override_constants/separation = 2
+
+[node name="ScoreLabel" type="Label" parent="HUD/RunStats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Score 000000"
+
+[node name="KillsLabel" type="Label" parent="HUD/RunStats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Kills 0"
+
+[node name="LevelLabel" type="Label" parent="HUD/RunStats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Level 1"
