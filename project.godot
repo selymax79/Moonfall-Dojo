@@ -25,6 +25,11 @@ window/stretch/scale_mode="fractional"
 
 [input]
 
+dev_restart={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194333)]
+}
+
 jump={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":4194320)]
