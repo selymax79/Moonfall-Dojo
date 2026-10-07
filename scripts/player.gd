@@ -7,10 +7,14 @@ const PUNCH_RECOVERY_DURATION: float = 0.16
 const KICK_EXTENSION_DURATION: float = 0.08
 const KICK_HOLD_DURATION: float = 0.10
 const KICK_RECOVERY_DURATION: float = 0.22
+const DUCK_CROUCH_DURATION: float = 0.08
+const DUCK_HOLD_DURATION: float = 0.20
+const DUCK_RECOVERY_DURATION: float = 0.17
+const DUCK_HEIGHT_SCALE: float = 0.45
 const PUNCH_EXTENDED_SCALE: float = 1.5
 const KICK_EXTENDED_SCALE: float = 8.0 / 3.0
 
-enum Action { NONE, PUNCH, KICK }
+enum Action { NONE, PUNCH, KICK, DUCK }
 
 var target_direction: float = 1.0
 var turn_progress: float = 1.0
@@ -30,6 +34,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		start_action(Action.PUNCH)
 	elif event.is_action_pressed("kick"):
 		start_action(Action.KICK)
+	elif event.is_action_pressed("duck"):
+		start_action(Action.DUCK)
 	elif event.is_action_pressed("turn_left"):
 		target_direction = -1.0
 	elif event.is_action_pressed("turn_right"):
@@ -49,7 +55,7 @@ func _process(delta: float) -> void:
 
 
 func start_action(action: Action) -> void:
-	# Either attack completes a reversible turn in its requested direction.
+	# A committed action completes a reversible turn in its requested direction.
 	turn_progress = target_direction
 	visuals.scale.x = target_direction
 	action_elapsed = 0.0
@@ -68,6 +74,10 @@ func update_action(delta: float) -> void:
 		hold_duration = KICK_HOLD_DURATION
 		recovery_duration = KICK_RECOVERY_DURATION
 		extended_scale = KICK_EXTENDED_SCALE
+	elif current_action == Action.DUCK:
+		extension_duration = DUCK_CROUCH_DURATION
+		hold_duration = DUCK_HOLD_DURATION
+		recovery_duration = DUCK_RECOVERY_DURATION
 
 	var duration: float = extension_duration + hold_duration + recovery_duration
 	action_elapsed = minf(action_elapsed + delta, duration)
@@ -79,10 +89,17 @@ func update_action(delta: float) -> void:
 	else:
 		extension = 1.0 - (action_elapsed - extension_duration - hold_duration) / recovery_duration
 
-	# Visuals mirrors the animated limb when facing left.
-	limb.rotation = -PI / 2.0 * extension
-	limb.scale.y = lerpf(1.0, extended_scale, extension)
+	if current_action == Action.DUCK:
+		# Visuals is rooted at the feet, so vertical compression keeps them planted.
+		visuals.scale.y = lerpf(1.0, DUCK_HEIGHT_SCALE, extension)
+	else:
+		# Visuals mirrors the animated limb when facing left.
+		limb.rotation = -PI / 2.0 * extension
+		limb.scale.y = lerpf(1.0, extended_scale, extension)
 	if action_elapsed >= duration or is_equal_approx(action_elapsed, duration):
-		limb.rotation = 0.0
-		limb.scale = Vector2.ONE
+		if current_action == Action.DUCK:
+			visuals.scale.y = 1.0
+		else:
+			limb.rotation = 0.0
+			limb.scale = Vector2.ONE
 		current_action = Action.NONE
