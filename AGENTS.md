@@ -211,3 +211,95 @@ The following are explicitly out of scope for V1:
 ### Possible V2 idea — do not implement now
 
 A dynamic day/night cycle tied cosmetically to progression, approximately one complete cycle every 40 levels. It must not affect gameplay or threat readability. This is a future possibility, not an approved implementation task.
+
+## Code documentation and learning
+
+Moonfall Dojo is intended to teach the project owner programming and Godot/GDScript while the game is being built. Code should therefore remain understandable rather than becoming a black box that merely works.
+
+### Commenting principles
+
+Maintain concise, useful comments as part of normal implementation.
+
+Comments should primarily explain:
+
+- **WHAT** a significant system, class, script, function, method, signal handler, or logical block is responsible for.
+- **WHY** non-obvious implementation decisions exist.
+- Important gameplay intent behind the implementation where the code alone does not communicate it.
+- Interactions or dependencies between relevant systems.
+- Important state transitions, timing assumptions, coordinate assumptions, collision behaviour, or other constraints.
+- Intentional extension points already anticipated by the current design.
+
+Do not comment every line or simply translate obvious code into English. Prefer descriptive names and readable code when the implementation is self-explanatory.
+
+For example, avoid comments such as:
+
+`# Set health to 100`
+
+above:
+
+`health = 100`
+
+A useful comment should provide information that cannot be understood immediately from the statement itself.
+
+### Learning value
+
+Where genuinely useful, briefly identify programming or Godot concepts demonstrated by the implementation.
+
+Examples include state machines, signals, scene composition, node ownership, collision layers, enums, exported variables, timers, input handling, or separation of responsibilities.
+
+Keep these explanations concise. Source files should remain clean working code rather than becoming programming tutorials.
+
+When completing a coding task, briefly explain one or two useful programming or Godot concepts demonstrated by the change and identify the relevant file or code area so the owner can inspect and learn from it.
+
+### Gameplay intent
+
+Where implementation values or behaviour exist for gameplay reasons, document the reason when it would otherwise be unclear.
+
+For example, if an enemy begins a telegraph before reaching attack range so the player receives a fair reaction window, document that intent rather than merely describing the distance check.
+
+Important timing values, ranges, offsets, thresholds, and similar constants should have their purpose documented when their meaning is not obvious from their name.
+
+Do not document arbitrary values as intentional design decisions unless they actually are.
+
+### Future scope
+
+Use:
+
+`TODO:` for specific work genuinely expected to be implemented later.
+
+`FUTURE:` for intentional extension points or capabilities that the current architecture deliberately leaves room for.
+
+Do not invent speculative future requirements merely to create TODO or FUTURE comments.
+
+The existence of a TODO or FUTURE comment is not permission to implement that work. The project's normal scope rules still apply.
+
+### Comments are maintained documentation
+
+Treat comments as part of the code, not as permanent historical notes.
+
+Whenever code is modified, review the comments associated with and surrounding that code.
+
+If behaviour, architecture, responsibility, assumptions, gameplay intent, or planned extension points have changed:
+
+- Update the relevant comments.
+- Remove comments that are no longer true or useful.
+- Remove completed TODO comments.
+- Revise or remove FUTURE comments when the intended extension point changes.
+- Consolidate duplicated or redundant comments.
+- Never knowingly leave a comment describing behaviour the current code no longer performs.
+
+Do not preserve an obsolete comment merely because it describes how the system worked previously. Git provides the historical record; comments should describe the current code and its current intent.
+
+### Documentation is part of Definition of Done
+
+A coding task is not complete until:
+
+1. The requested implementation is complete.
+2. Affected comments have been reviewed.
+3. New non-obvious behaviour is appropriately documented.
+4. Existing comments still accurately describe the implementation.
+5. Obsolete comments and completed TODOs have been updated or removed.
+6. Relevant TODO/FUTURE notes still accurately represent approved or intentionally anticipated scope.
+7. The completion report includes one or two useful learning points when the change demonstrates concepts worth explaining.
+
+Documentation maintenance should happen as part of each change rather than being deferred to a later documentation cleanup.

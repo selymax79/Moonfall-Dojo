@@ -1,5 +1,8 @@
+## Owns input, fixed-duration actions, spatial attacks and the placeholder death animation.
+## The root stays at the floor; Visuals moves/scales around its feet (negative Y is upward).
 extends Node2D
 
+# Durations are seconds and distances are logical pixels; player timings stay fixed across levels.
 const TURN_DURATION: float = 0.10
 const PUNCH_EXTENSION_DURATION: float = 0.06
 const PUNCH_HOLD_DURATION: float = 0.08
@@ -18,6 +21,7 @@ const PUNCH_EXTENDED_SCALE: float = 1.5
 const KICK_OUTLINE_EXTENDED = [Vector2(-3, 0), Vector2(10, -21), Vector2(32, -21), Vector2(32, -15), Vector2(10, -15), Vector2(3, 0)]
 const KICK_FILL_EXTENDED = [Vector2(-2, 0), Vector2(11, -20), Vector2(31, -20), Vector2(31, -16), Vector2(10, -16), Vector2(2, 0)]
 
+# NONE allows reversible turning; every other action locks input until its animation finishes.
 enum Action { NONE, PUNCH, KICK, DUCK, JUMP }
 
 var target_direction: float = 1.0
@@ -35,6 +39,7 @@ var death_leg_scale: Vector2
 var kick_extension: float = 0.0
 var death_kick_extension: float = 0.0
 
+# @onready resolves scene children after they exist, and captures the original pose for restoration.
 @onready var visuals: Node2D = $Visuals
 @onready var standing_visual_position: Vector2 = visuals.position
 @onready var punch_arm: Node2D = $Visuals/PunchArm
@@ -48,6 +53,7 @@ var death_kick_extension: float = 0.0
 @onready var kick_fill_rest: PackedVector2Array = kick_fill.polygon
 
 
+## React to fresh presses rather than held keys. Echo filtering prevents keyboard auto-repeat.
 func _unhandled_input(event: InputEvent) -> void:
 	# Discard inputs during the committed action; nothing is buffered.
 	if is_dead or current_action != Action.NONE or event.is_echo():
@@ -66,6 +72,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		target_direction = 1.0
 
 
+## Main advances the pose before combat resolution, keeping collision and visuals on the same tick.
+## The mutable hurtbox shape is scene-local, so resizing it cannot affect another instance.
 func advance_tick(delta: float) -> void:
 	if is_dead:
 		update_death(delta)
@@ -76,6 +84,7 @@ func advance_tick(delta: float) -> void:
 	hurtbox.shape.size = Vector2(16.0, 40.0 * visuals.scale.y)
 
 
+## Committed actions own the pose; otherwise horizontal squashing gives turns a brief animation.
 func update_living_pose(delta: float) -> void:
 	if current_action != Action.NONE:
 		update_action(delta)
@@ -88,6 +97,8 @@ func update_living_pose(delta: float) -> void:
 	visuals.scale.x = visible_width * (-1.0 if turn_progress < 0.0 else 1.0)
 
 
+## Begin immediately in the requested facing direction, even midway through a turn.
+## The input handler checks the action lock before calling this; no pending action is stored.
 func start_action(action: Action) -> void:
 	if is_dead:
 		return
@@ -98,6 +109,7 @@ func start_action(action: Action) -> void:
 	current_action = action
 
 
+## Punch, Kick and Duck share extension/hold/recovery timing; Jump has its own curved motion.
 func update_action(delta: float) -> void:
 	if current_action == Action.JUMP:
 		update_jump(delta)
@@ -118,6 +130,7 @@ func update_action(delta: float) -> void:
 		hold_duration = DUCK_HOLD_DURATION
 		recovery_duration = DUCK_RECOVERY_DURATION
 
+	# A shared 0-to-1-to-0 amount drives each pose without duplicating the phase calculation.
 	var duration: float = extension_duration + hold_duration + recovery_duration
 	action_elapsed = minf(action_elapsed + delta, duration)
 	var extension: float
@@ -137,6 +150,7 @@ func update_action(delta: float) -> void:
 		# Visuals mirrors the animated limb when facing left.
 		limb.rotation = -PI / 2.0 * extension
 		limb.scale.y = lerpf(1.0, extended_scale, extension)
+	# Explicit resets avoid leaving a nearly-restored pose because of floating-point rounding.
 	if action_elapsed >= duration or is_equal_approx(action_elapsed, duration):
 		if current_action == Action.DUCK:
 			visuals.scale.y = 1.0
@@ -148,6 +162,8 @@ func update_action(delta: float) -> void:
 		current_action = Action.NONE
 
 
+## Interpolate matching polygon vertices from the resting leg to a raised, longer-reaching kick.
+## Extended points are local to KickLeg; its parent mirrors the whole pose when facing left.
 func update_kick_pose(extension: float) -> void:
 	kick_extension = extension
 	var outline := PackedVector2Array()
@@ -160,6 +176,8 @@ func update_kick_pose(extension: float) -> void:
 	kick_fill.polygon = fill
 
 
+## Only the fully extended hold can hit. Both enemies expose Hurtbox, is_dead and receive_hit().
+## No attack type is passed to the enemy: range and vertical overlap decide whether it dies.
 func resolve_attack(enemy: Area2D) -> void:
 	if is_dead or enemy.is_dead:
 		return
@@ -178,7 +196,8 @@ func resolve_attack(enemy: Area2D) -> void:
 		return
 	if action_elapsed < active_start or action_elapsed >= active_end:
 		return
-	# Compare current transforms directly; no physics-server overlap cache lag.
+	# Disabled scene shapes are templates for this direct query, not automatic Area2D monitoring.
+	# Mirror their local X offsets into world space; current transforms avoid overlap-cache lag.
 	var offset := attack_shape.position
 	offset.x *= target_direction
 	var attack_transform := Transform2D(0.0, to_global(offset))
@@ -187,6 +206,7 @@ func resolve_attack(enemy: Area2D) -> void:
 		enemy.receive_hit()
 
 
+## Death immediately cancels gameplay actions; capture the current pose for a continuous fall.
 func receive_hit() -> void:
 	if is_dead:
 		return
@@ -201,11 +221,13 @@ func receive_hit() -> void:
 	death_kick_extension = kick_extension
 
 
+## Smoothstep eases into a permanent fallen pose while returning the limbs to rest.
+## This placeholder assumes an attacker on the right; only Visuals moves, never the Player root.
 func update_death(delta: float) -> void:
 	death_elapsed = minf(death_elapsed + delta, DEATH_DURATION)
 	var progress: float = death_elapsed / DEATH_DURATION
 	var eased: float = progress * progress * (3.0 - 2.0 * progress)
-	# Fall away from the right-side attacker. Keep the silhouette above the floor.
+	# Offset the rotated body toward the floor as it falls away from the right-side attacker.
 	visuals.position = death_start_position.lerp(standing_visual_position + Vector2(0, -11), eased)
 	visuals.scale = death_start_scale.lerp(Vector2(1, 1), eased)
 	visuals.rotation = -PI / 2.0 * eased
@@ -216,6 +238,8 @@ func update_death(delta: float) -> void:
 	update_kick_pose(lerpf(death_kick_extension, 0.0, eased))
 
 
+## A fixed visual arc gives predictable evasion without gravity or a moving character controller.
+## Restore the saved position explicitly on landing so repeated jumps cannot accumulate drift.
 func update_jump(delta: float) -> void:
 	action_elapsed = minf(action_elapsed + delta, JUMP_DURATION)
 	var progress: float = action_elapsed / JUMP_DURATION
