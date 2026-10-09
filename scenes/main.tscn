@@ -40,6 +40,13 @@ theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_font_sizes/font_size = 16
 text = "Kills 0"
 
+[node name="DodgesLabel" type="Label" parent="HUD/RunStats"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "Dodges 0"
+
 [node name="LevelLabel" type="Label" parent="HUD/RunStats"]
 layout_mode = 2
 mouse_filter = 2

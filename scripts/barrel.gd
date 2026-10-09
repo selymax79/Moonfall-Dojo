@@ -1,5 +1,5 @@
 ## A rolling floor obstacle. Main advances Player first, then movement and direct collision queries.
-## It is not an Assassin: Main never sends Player attacks here, and passage awards no points yet.
+## Main never sends Player attacks here; it awards a Dodge and score once when safe passage completes.
 ## The scene's 7 px radius and 0.75 s Jump give about 195 ms of theoretical input opportunity at 60 px/s.
 extends Area2D
 

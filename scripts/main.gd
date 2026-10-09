@@ -12,12 +12,13 @@ const APPROACH_SPEED_PER_LEVEL: float = 5.0
 const MAX_APPROACH_SPEED: float = 100.0
 # A brief breathing space after a kill or completed Barrel passage; negative means no spawn is pending.
 const NEXT_SPAWN_DELAY: float = 0.85
-const POINTS_PER_KILL: int = 100
+const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
 const HIGH_SCORE_PATH: String = "user://high_score.cfg"
 var high_score: int = 0
 var score: int = 0
 var kills: int = 0
+var dodges: int = 0
 # Supply before _ready() for a future higher-level start; progression stays relative to this run.
 var run_start_level: int = 1
 var level: int = 1
@@ -30,6 +31,7 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var high_score_label: Label = $HUD/RunStats/HighScoreLabel
 @onready var score_label: Label = $HUD/RunStats/ScoreLabel
 @onready var kills_label: Label = $HUD/RunStats/KillsLabel
+@onready var dodges_label: Label = $HUD/RunStats/DodgesLabel
 @onready var level_label: Label = $HUD/RunStats/LevelLabel
 @onready var multiplier_label: Label = $HUD/RunStats/MultiplierLabel
 
@@ -73,6 +75,7 @@ func update_hud() -> void:
 	high_score_label.text = "High Score %06d" % high_score
 	score_label.text = "Score %06d" % score
 	kills_label.text = "Kills %d" % kills
+	dodges_label.text = "Dodges %d" % dodges
 	level_label.text = "Level %d" % level
 	var half_units: int = get_multiplier_half_units()
 	# Integer quotient and remainder display exact halves with one decimal place.
@@ -85,6 +88,25 @@ func get_multiplier_half_units() -> int:
 	# Truncation intentionally counts only complete groups of three levels.
 	@warning_ignore("integer_division")
 	return 2 + (level - run_start_level) / 3
+
+
+## Reward a gameplay success before its encounter branch releases the active threat.
+## Score first so a Level-boundary threat still earns the old multiplier; cosmetics never call this.
+func award_successful_threat(threat_type: ThreatType) -> void:
+	var half_units: int = get_multiplier_half_units()
+	@warning_ignore("integer_division")
+	score += (POINTS_PER_THREAT * half_units) / 2
+	if score > high_score:
+		high_score = score
+		save_high_score()
+	if threat_type == ThreatType.BARREL:
+		dodges += 1
+	else:
+		kills += 1
+	var handled_threats: int = kills + dodges
+	@warning_ignore("integer_division")
+	level = run_start_level + handled_threats / HANDLED_THREATS_PER_LEVEL
+	update_hud()
 
 
 ## Temporary development convenience: reload the whole scene, even during actions or death.
@@ -135,7 +157,8 @@ func _physics_process(delta: float) -> void:
 		if player.is_dead:
 			spawn_countdown = -1.0
 		elif active_threat.is_complete:
-			# Barrel dodges currently end encounters without score, counters or save writes.
+			# Reward passage once, independently of the Barrel's remaining cosmetic lifetime.
+			award_successful_threat(active_threat_type)
 			active_threat = null
 			spawn_countdown = NEXT_SPAWN_DELAY
 		return
@@ -143,20 +166,7 @@ func _physics_process(delta: float) -> void:
 	# Player hits always resolve first, including simultaneous valid strikes.
 	player.resolve_attack(active_threat)
 	if active_threat.is_dead:
-		# Award once here before clearing the reference, independently of deferred node removal.
-		# Score before advancing Level: the completion kill uses the old multiplier.
-		var half_units: int = get_multiplier_half_units()
-		@warning_ignore("integer_division")
-		score += (POINTS_PER_KILL * half_units) / 2
-		# Observe the awarded score before progression; equality never rewrites the record.
-		if score > high_score:
-			high_score = score
-			save_high_score()
-		kills += 1
-		# Only kills advance Level for now; Barrel dodges deliberately do not contribute yet.
-		@warning_ignore("integer_division")
-		level = run_start_level + kills / HANDLED_THREATS_PER_LEVEL
-		update_hud()
+		award_successful_threat(active_threat_type)
 		# The flag is immediate; queue_free() happens later. Start counting on the next tick.
 		active_threat = null
 		spawn_countdown = NEXT_SPAWN_DELAY
