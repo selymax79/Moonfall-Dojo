@@ -15,6 +15,8 @@ const POINTS_PER_KILL: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
 var score: int = 0
 var kills: int = 0
+# Supply before _ready() for a future higher-level start; progression stays relative to this run.
+var run_start_level: int = 1
 var level: int = 1
 var spawn_countdown: float = -1.0
 var active_assassin = null
@@ -24,6 +26,7 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var score_label: Label = $HUD/RunStats/ScoreLabel
 @onready var kills_label: Label = $HUD/RunStats/KillsLabel
 @onready var level_label: Label = $HUD/RunStats/LevelLabel
+@onready var multiplier_label: Label = $HUD/RunStats/MultiplierLabel
 
 
 ## Randomise before entering the tree so tests can override the seed before the first spawn.
@@ -33,6 +36,7 @@ func _init() -> void:
 
 ## A fresh scene starts a fresh encounter without resetting any existing Player state.
 func _ready() -> void:
+	level = run_start_level
 	update_hud()
 	spawn_assassin()
 
@@ -42,6 +46,17 @@ func update_hud() -> void:
 	score_label.text = "Score %06d" % score
 	kills_label.text = "Kills %d" % kills
 	level_label.text = "Level %d" % level
+	var half_units: int = get_multiplier_half_units()
+	# Integer quotient and remainder display exact halves with one decimal place.
+	@warning_ignore("integer_division")
+	multiplier_label.text = "Multiplier x%d.%d" % [half_units / 2, (half_units % 2) * 5]
+
+
+## Two half-units mean x1.0; each three completed run levels add another half-unit.
+func get_multiplier_half_units() -> int:
+	# Truncation intentionally counts only complete groups of three levels.
+	@warning_ignore("integer_division")
+	return 2 + (level - run_start_level) / 3
 
 
 ## Temporary development convenience: reload the whole scene, even during actions or death.
@@ -84,10 +99,14 @@ func _physics_process(delta: float) -> void:
 	player.resolve_attack(active_assassin)
 	if active_assassin.is_dead:
 		# Award once here before clearing the reference, independently of deferred node removal.
+		# Score before advancing Level: the completion kill uses the old multiplier.
+		var half_units: int = get_multiplier_half_units()
+		@warning_ignore("integer_division")
+		score += (POINTS_PER_KILL * half_units) / 2
 		kills += 1
-		score += POINTS_PER_KILL
 		# Kills are all handled threats for now; future dodges can contribute to this total.
-		level = 1 + floori(float(kills) / HANDLED_THREATS_PER_LEVEL)
+		@warning_ignore("integer_division")
+		level = run_start_level + kills / HANDLED_THREATS_PER_LEVEL
 		update_hud()
 		# The flag is immediate; queue_free() happens later. Start counting on the next tick.
 		active_assassin = null
