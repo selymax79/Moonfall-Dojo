@@ -1,5 +1,5 @@
-## Runs one active threat at a time, with Player-first combat and spatial hazard dodging.
-## Main advances active gameplay actors; resolved hazards animate their harmless exit independently.
+## Schedules up to two unresolved threats with separate response/recovery reservations.
+## Main owns gameplay; resolved hazards run their harmless cosmetic aftermath independently.
 extends Node2D
 
 enum ThreatType { RED, BLUE, BARREL, SHURIKEN }
@@ -10,8 +10,14 @@ const APPROACH_SPEED_PER_LEVEL: float = 5.0
 # Speed plateaus at Level 9: a conservative cap with about 195 ms of theoretical Blue input opportunity.
 # This is a tuning limit, not a mathematical impossibility boundary; attack timings stay fixed.
 const MAX_APPROACH_SPEED: float = 100.0
-# A brief breathing space after a kill or completed hazard passage; negative means no spawn is pending.
-const NEXT_SPAWN_DELAY: float = 0.85
+# Pacing never overrides the timing checks. Overlap is a Level 6 difficulty choice, not a safety exemption.
+const OVERLAP_START_LEVEL: int = 6
+const FAIRNESS_MARGIN: float = 0.10
+const ASSASSIN_TURN_ALLOWANCE: float = 0.10
+# Intended responses in ThreatType order: Kick, Punch, Jump, Duck.
+const RESPONSE_DURATIONS = [0.40, 0.30, 0.75, 0.60]
+# Player.Action order: NONE, PUNCH, KICK, DUCK, JUMP. Keep aligned with Player's fixed timings.
+const PLAYER_ACTION_DURATIONS = [0.0, 0.30, 0.40, 0.60, 0.75]
 const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
 const HIGH_SCORE_PATH: String = "user://high_score.cfg"
@@ -22,9 +28,13 @@ var dodges: int = 0
 # Supply before _ready() for a future higher-level start; progression stays relative to this run.
 var run_start_level: int = 1
 var level: int = 1
-var spawn_countdown: float = -1.0
-var active_threat = null
-var active_threat_type: ThreatType = ThreatType.RED
+# Each record contains actor, type, lethal_at, response_start and response_end (absolute run seconds).
+# Only unresolved gameplay belongs here; at most two records keeps ownership explicit.
+var active_threats: Array[Dictionary] = []
+var encounter_time: float = 0.0
+var next_spawn_at: float = 0.0
+var pending_type: int = -1
+var pending_side: int = 0
 var encounter_rng := RandomNumberGenerator.new()
 
 @onready var player = $Player
@@ -46,7 +56,8 @@ func _ready() -> void:
 	level = run_start_level
 	load_high_score()
 	update_hud()
-	spawn_threat()
+	select_pending_threat()
+	try_spawn_pending_threat()
 
 
 ## Load each fresh scene, including F2 reloads. Missing or invalid data leaves a zero record.
@@ -90,7 +101,7 @@ func get_multiplier_half_units() -> int:
 	return 2 + (level - run_start_level) / 3
 
 
-## Reward a gameplay success before its encounter branch releases the active threat.
+## Reward a gameplay success before releasing its unresolved record.
 ## Score first so a Level-boundary threat still earns the old multiplier; cosmetics never call this.
 func award_successful_threat(threat_type: ThreatType) -> void:
 	var half_units: int = get_multiplier_half_units()
@@ -116,64 +127,126 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().reload_current_scene()
 
 
-## Choose type and entry side independently; repeated types and sides are valid encounters.
-func spawn_threat() -> void:
-	if player.is_dead or is_instance_valid(active_threat):
+## Exactly two draws per selection, including the pending choice: type, then side; never reroll waits.
+func select_pending_threat() -> void:
+	pending_type = encounter_rng.randi_range(0, 3)
+	pending_side = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
+
+
+func get_spawn_gap() -> float:
+	if level <= 3: return 0.85
+	if level <= 6: return 0.65
+	if level <= 9: return 0.45
+	return 0.35
+
+
+func get_max_unresolved() -> int:
+	return 1 if level < OVERLAP_START_LEVEL else 2
+
+
+func is_assassin(threat_type: int) -> bool:
+	return threat_type == ThreatType.RED or threat_type == ThreatType.BLUE
+
+
+## Pending choices have no speed yet: a Level-up before spawn must affect the new actor.
+func get_spawn_speed(threat_type: int) -> float:
+	var base_speed: float = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
+	return base_speed * 1.25 if threat_type == ThreatType.SHURIKEN else base_speed
+
+
+## First possible contact with standing Player, derived from the existing mirrored geometry.
+## Assassin travel includes the moving 0.35 s telegraph; add only the final weapon travel.
+func get_lethal_lead(threat_type: int, speed: float) -> float:
+	match threat_type:
+		ThreatType.RED: return 202.0 / speed + 0.09 # 38 px stop; blade reaches Player 90 ms into strike.
+		ThreatType.BLUE: return 210.0 / speed + 0.08 # 30 px stop; fist reaches Player 80 ms into strike.
+		ThreatType.BARREL: return 225.0 / speed # 240 px separation minus 8 px Player half-width and radius 7.
+		ThreatType.SHURIKEN: return 228.0 / speed # Radius 4; speed already includes the projectile multiplier.
+	return 0.0
+
+
+## Reserve [first contact - response duration, first contact + response duration].
+## It contains a valid intended response and its full recovery, not a promise that every press in it wins.
+## A new reservation must follow every existing recovery, actual Player availability, turn and margin.
+func try_spawn_pending_threat() -> void:
+	if player.is_dead or pending_type < 0 or encounter_time < next_spawn_at:
 		return
-	active_threat_type = encounter_rng.randi_range(0, 3) as ThreatType
-	active_threat = THREAT_SCENES[active_threat_type].instantiate()
-	# Keep this second draw unconditional so seeded runs always consume type, then side.
-	var entry_side: int = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
-	active_threat.configure_entry(entry_side)
-	# Snapshot this level's speed at spawn; later level changes never modify an existing threat.
-	active_threat.movement_speed = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
-	active_threat.position = THREAT_START_POSITION
-	if active_threat_type == ThreatType.SHURIKEN:
-		active_threat.movement_speed *= active_threat.PROJECTILE_SPEED_MULTIPLIER
-		active_threat.position.y = active_threat.FLIGHT_HEIGHT
-	# Reflect the authored right spawn around Player: x=560 becomes x=80 at Player x=320.
-	active_threat.position.x = player.position.x + entry_side * (THREAT_START_POSITION.x - player.position.x)
-	add_child(active_threat)
-	spawn_countdown = -1.0
+	if active_threats.size() >= get_max_unresolved():
+		return
+	var ready_at: float = encounter_time + maxf(0.0, PLAYER_ACTION_DURATIONS[player.current_action] - player.action_elapsed)
+	for record in active_threats:
+		# A dodged/retrying Assassin invalidates its original first-strike forecast. Wait for resolution.
+		if encounter_time >= record.lethal_at:
+			return
+		ready_at = maxf(ready_at, record.response_end)
+	var speed: float = get_spawn_speed(pending_type)
+	var lethal_at: float = encounter_time + get_lethal_lead(pending_type, speed)
+	var duration: float = RESPONSE_DURATIONS[pending_type]
+	var turn_time: float = ASSASSIN_TURN_ALLOWANCE if is_assassin(pending_type) else 0.0
+	# Reserve a full turn for either Assassin side; this also covers facing changes during hazards.
+	if lethal_at - duration < ready_at + turn_time + FAIRNESS_MARGIN:
+		return
+	var actor = THREAT_SCENES[pending_type].instantiate()
+	actor.configure_entry(pending_side)
+	actor.movement_speed = speed
+	actor.position = THREAT_START_POSITION
+	actor.position.x = player.position.x + pending_side * (THREAT_START_POSITION.x - player.position.x)
+	if pending_type == ThreatType.SHURIKEN:
+		actor.position.y = actor.FLIGHT_HEIGHT
+	add_child(actor)
+	active_threats.append({"actor": actor, "type": pending_type, "lethal_at": lethal_at,
+		"response_start": lethal_at - duration, "response_end": lethal_at + duration})
+	next_spawn_at = encounter_time + get_spawn_gap()
+	select_pending_threat()
 
 
-## Godot calls this at the fixed physics rate. Update both poses before testing their shapes.
+## Release gameplay ownership immediately; harmless hazard animation remains owned by its node.
+func finish_threat(record: Dictionary) -> void:
+	award_successful_threat(record.type as ThreatType)
+	active_threats.erase(record)
+	# Use the new Level's pacing after progression. Already approaching actors keep their reservations.
+	next_spawn_at = encounter_time + get_spawn_gap()
+
+
+func cancel_pending_spawn() -> void:
+	pending_type = -1
+	pending_side = 0
+	next_spawn_at = -1.0
+
+
+## All actors move first, then Player attacks, then lethal checks, then surviving hazard rewards.
+## Separate passes preserve Player-first Assassin priority regardless of the array's encounter order.
 func _physics_process(delta: float) -> void:
+	encounter_time += delta
 	player.advance_tick(delta)
-	# Death freezes active hazards but lets a surviving Assassin finish its existing recovery.
 	if player.is_dead:
-		spawn_countdown = -1.0
-		if is_instance_valid(active_threat) and (active_threat_type == ThreatType.RED or active_threat_type == ThreatType.BLUE):
-			active_threat.advance_tick(delta, player.position.x, true)
+		cancel_pending_spawn()
+		# Preserve Assassin recovery after death; active hazards freeze and cosmetics remain independent.
+		for record in active_threats:
+			if is_assassin(record.type):
+				record.actor.advance_tick(delta, player.position.x, true)
 		return
-	if not is_instance_valid(active_threat):
-		if spawn_countdown >= 0.0:
-			spawn_countdown = maxf(0.0, spawn_countdown - delta)
-			if is_zero_approx(spawn_countdown):
-				spawn_threat()
-		# A newly spawned threat starts moving on the following tick.
-		return
-	if active_threat_type == ThreatType.BARREL or active_threat_type == ThreatType.SHURIKEN:
-		active_threat.advance_tick(delta)
-		# Player's adaptive hurtbox is already current. Collision precedes completion.
-		active_threat.resolve_contact(player)
+	for record in active_threats:
+		if is_assassin(record.type):
+			record.actor.advance_tick(delta, player.position.x, false)
+		else:
+			record.actor.advance_tick(delta)
+	# Iterate a shallow copy because successful attacks remove records immediately.
+	for record in active_threats.duplicate():
+		if is_assassin(record.type):
+			player.resolve_attack(record.actor)
+			if record.actor.is_dead:
+				finish_threat(record)
+	for record in active_threats:
+		if is_assassin(record.type):
+			record.actor.resolve_attack(player)
+		else:
+			record.actor.resolve_contact(player)
 		if player.is_dead:
-			spawn_countdown = -1.0
-		elif active_threat.is_complete:
-			# Reward passage once, independently of the hazard's remaining cosmetic lifetime.
-			award_successful_threat(active_threat_type)
-			active_threat = null
-			spawn_countdown = NEXT_SPAWN_DELAY
-		return
-	active_threat.advance_tick(delta, player.position.x, false)
-	# Player hits always resolve first, including simultaneous valid strikes.
-	player.resolve_attack(active_threat)
-	if active_threat.is_dead:
-		award_successful_threat(active_threat_type)
-		# The flag is immediate; queue_free() happens later. Start counting on the next tick.
-		active_threat = null
-		spawn_countdown = NEXT_SPAWN_DELAY
-		return
-	active_threat.resolve_attack(player)
-	if player.is_dead:
-		spawn_countdown = -1.0
+			cancel_pending_spawn()
+			return
+	for record in active_threats.duplicate():
+		if not is_assassin(record.type) and record.actor.is_complete:
+			finish_threat(record)
+	# Spawning is last: a new actor first moves on the following physics tick.
+	try_spawn_pending_threat()
