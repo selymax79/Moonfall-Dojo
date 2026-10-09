@@ -66,14 +66,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().reload_current_scene()
 
 
-## Both scenes use the same small combat convention; only scene selection differs.
+## Choose type and entry side independently; repeated types and sides are valid encounters.
 func spawn_assassin() -> void:
 	if player.is_dead or is_instance_valid(active_assassin):
 		return
 	active_assassin = ASSASSIN_SCENES[encounter_rng.randi_range(0, 1)].instantiate()
+	# Keep this second draw unconditional so seeded runs always consume type, then side.
+	var entry_side: int = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
+	active_assassin.configure_entry(entry_side)
 	# Snapshot this level's speed at spawn; later level changes never modify an existing enemy.
 	active_assassin.movement_speed = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
 	active_assassin.position = ASSASSIN_START_POSITION
+	# Reflect the authored right spawn around Player: x=560 becomes x=80 at Player x=320.
+	active_assassin.position.x = player.position.x + entry_side * (ASSASSIN_START_POSITION.x - player.position.x)
 	add_child(active_assassin)
 	spawn_countdown = -1.0
 

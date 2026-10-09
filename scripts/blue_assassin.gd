@@ -1,4 +1,4 @@
-## Right-side unarmed threat whose low posture lets Punch connect while a raised Kick passes above.
+## Unarmed threat from either side whose low posture lets Punch connect while a raised Kick passes above.
 ## Main controls tick and hit ordering; the different attack results come entirely from geometry.
 extends Area2D
 
@@ -14,6 +14,8 @@ const RECOVERY_DURATION: float = 0.25
 const RETRY_DELAY: float = 0.40
 # Main supplies this before adding the scene; independent instances retain Level 1 speed.
 var movement_speed: float = 60.0
+# +1 enters from the right (the authored pose); -1 reflects that encounter from the left.
+var entry_side: int = 1
 
 enum Phase { APPROACH, WINDUP, STRIKE, RECOVERY, WAIT }
 var phase: Phase = Phase.APPROACH
@@ -30,20 +32,29 @@ var crouch_elapsed: float = 0.0
 @onready var forearm: Polygon2D = $Forearm
 
 
+## Configure before entering the tree. Reflect the body, forearm, fist and collision children
+## together; the existing local crouch and fist animation then stay aligned on either side.
+func configure_entry(side: int) -> void:
+	assert(side == 1 or side == -1)
+	entry_side = side
+	scale = Vector2(entry_side, 1.0)
+
+
 ## Advance in the shared parent coordinate space, crouching while closing the final distance.
 ## Finish an ongoing attack after Player dies, but stop retrying once WAIT is reached.
 func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 	if is_dead:
 		return
-	var strike_x: float = player_x + ATTACK_DISTANCE
+	var strike_x: float = player_x + entry_side * ATTACK_DISTANCE
 	# Scale travel distance, not telegraph time; Blue still crouches before entering Kick range.
 	var windup_distance: float = movement_speed * WINDUP_DURATION
 	var remaining: float = delta
 	# Carry leftover tick time into the next phase instead of losing it at each transition.
 	if phase == Phase.APPROACH:
-		var travel_time: float = maxf(0.0, position.x - strike_x - windup_distance) / movement_speed
+		# Signed separation makes the same approach calculation work on both sides of Player.
+		var travel_time: float = maxf(0.0, (position.x - strike_x) * entry_side - windup_distance) / movement_speed
 		var step: float = minf(remaining, travel_time)
-		position.x -= movement_speed * step
+		position.x = move_toward(position.x, strike_x, movement_speed * step)
 		remaining -= step
 		if step < travel_time:
 			return
