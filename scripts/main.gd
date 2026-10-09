@@ -1,5 +1,5 @@
 ## Runs one random threat at a time, with Player-first Assassin combat and spatial Barrel dodging.
-## Both actors share this scene's coordinate space; their scripts do not tick themselves.
+## Main advances active gameplay actors; resolved Barrels animate their harmless exit independently.
 extends Node2D
 
 enum ThreatType { RED, BLUE, BARREL }

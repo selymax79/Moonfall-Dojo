@@ -14,7 +14,8 @@ const DUCK_CROUCH_DURATION: float = 0.08
 const DUCK_HOLD_DURATION: float = 0.20
 const DUCK_RECOVERY_DURATION: float = 0.17
 const DUCK_HEIGHT_SCALE: float = 0.45
-const JUMP_DURATION: float = 0.60
+# Extra airtime clears the 14 px Barrel without raising the 55 px apex; commitment lasts the full arc.
+const JUMP_DURATION: float = 0.75
 const JUMP_HEIGHT: float = 55.0
 const DEATH_DURATION: float = 0.40
 const PUNCH_EXTENDED_SCALE: float = 1.5
