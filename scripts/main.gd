@@ -1,15 +1,16 @@
-## Runs one random Assassin encounter at a time, with Player-first combat resolution.
+## Runs one random threat at a time, with Player-first Assassin combat and spatial Barrel dodging.
 ## Both actors share this scene's coordinate space; their scripts do not tick themselves.
 extends Node2D
 
-const ASSASSIN_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn")]
-const ASSASSIN_START_POSITION := Vector2(560, 300)
+enum ThreatType { RED, BLUE, BARREL }
+const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn")]
+const THREAT_START_POSITION := Vector2(560, 300)
 const BASE_APPROACH_SPEED: float = 60.0
 const APPROACH_SPEED_PER_LEVEL: float = 5.0
 # Speed plateaus at Level 9: a conservative cap with about 195 ms of theoretical Blue input opportunity.
 # This is a tuning limit, not a mathematical impossibility boundary; attack timings stay fixed.
 const MAX_APPROACH_SPEED: float = 100.0
-# A brief breathing space after a kill; negative means no spawn is pending.
+# A brief breathing space after a kill or completed Barrel passage; negative means no spawn is pending.
 const NEXT_SPAWN_DELAY: float = 0.85
 const POINTS_PER_KILL: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
@@ -21,7 +22,8 @@ var kills: int = 0
 var run_start_level: int = 1
 var level: int = 1
 var spawn_countdown: float = -1.0
-var active_assassin = null
+var active_threat = null
+var active_threat_type: ThreatType = ThreatType.RED
 var encounter_rng := RandomNumberGenerator.new()
 
 @onready var player = $Player
@@ -42,7 +44,7 @@ func _ready() -> void:
 	level = run_start_level
 	load_high_score()
 	update_hud()
-	spawn_assassin()
+	spawn_threat()
 
 
 ## Load each fresh scene, including F2 reloads. Missing or invalid data leaves a zero record.
@@ -93,42 +95,54 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 ## Choose type and entry side independently; repeated types and sides are valid encounters.
-func spawn_assassin() -> void:
-	if player.is_dead or is_instance_valid(active_assassin):
+func spawn_threat() -> void:
+	if player.is_dead or is_instance_valid(active_threat):
 		return
-	active_assassin = ASSASSIN_SCENES[encounter_rng.randi_range(0, 1)].instantiate()
+	active_threat_type = encounter_rng.randi_range(0, 2) as ThreatType
+	active_threat = THREAT_SCENES[active_threat_type].instantiate()
 	# Keep this second draw unconditional so seeded runs always consume type, then side.
 	var entry_side: int = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
-	active_assassin.configure_entry(entry_side)
-	# Snapshot this level's speed at spawn; later level changes never modify an existing enemy.
-	active_assassin.movement_speed = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
-	active_assassin.position = ASSASSIN_START_POSITION
+	active_threat.configure_entry(entry_side)
+	# Snapshot this level's speed at spawn; later level changes never modify an existing threat.
+	active_threat.movement_speed = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
+	active_threat.position = THREAT_START_POSITION
 	# Reflect the authored right spawn around Player: x=560 becomes x=80 at Player x=320.
-	active_assassin.position.x = player.position.x + entry_side * (ASSASSIN_START_POSITION.x - player.position.x)
-	add_child(active_assassin)
+	active_threat.position.x = player.position.x + entry_side * (THREAT_START_POSITION.x - player.position.x)
+	add_child(active_threat)
 	spawn_countdown = -1.0
 
 
 ## Godot calls this at the fixed physics rate. Update both poses before testing their shapes.
 func _physics_process(delta: float) -> void:
 	player.advance_tick(delta)
-	# Death cancels spawning but still lets the surviving enemy finish its existing recovery.
+	# Death freezes a Barrel but still lets a surviving Assassin finish its existing recovery.
 	if player.is_dead:
 		spawn_countdown = -1.0
-		if is_instance_valid(active_assassin):
-			active_assassin.advance_tick(delta, player.position.x, true)
+		if is_instance_valid(active_threat) and active_threat_type != ThreatType.BARREL:
+			active_threat.advance_tick(delta, player.position.x, true)
 		return
-	if not is_instance_valid(active_assassin):
+	if not is_instance_valid(active_threat):
 		if spawn_countdown >= 0.0:
 			spawn_countdown = maxf(0.0, spawn_countdown - delta)
 			if is_zero_approx(spawn_countdown):
-				spawn_assassin()
-		# A newly spawned enemy starts moving on the following tick.
+				spawn_threat()
+		# A newly spawned threat starts moving on the following tick.
 		return
-	active_assassin.advance_tick(delta, player.position.x, false)
+	if active_threat_type == ThreatType.BARREL:
+		active_threat.advance_tick(delta)
+		# Player's adaptive hurtbox is already current. Collision precedes completion.
+		active_threat.resolve_contact(player)
+		if player.is_dead:
+			spawn_countdown = -1.0
+		elif active_threat.is_complete:
+			# Barrel dodges currently end encounters without score, counters or save writes.
+			active_threat = null
+			spawn_countdown = NEXT_SPAWN_DELAY
+		return
+	active_threat.advance_tick(delta, player.position.x, false)
 	# Player hits always resolve first, including simultaneous valid strikes.
-	player.resolve_attack(active_assassin)
-	if active_assassin.is_dead:
+	player.resolve_attack(active_threat)
+	if active_threat.is_dead:
 		# Award once here before clearing the reference, independently of deferred node removal.
 		# Score before advancing Level: the completion kill uses the old multiplier.
 		var half_units: int = get_multiplier_half_units()
@@ -139,14 +153,14 @@ func _physics_process(delta: float) -> void:
 			high_score = score
 			save_high_score()
 		kills += 1
-		# Kills are all handled threats for now; future dodges can contribute to this total.
+		# Only kills advance Level for now; Barrel dodges deliberately do not contribute yet.
 		@warning_ignore("integer_division")
 		level = run_start_level + kills / HANDLED_THREATS_PER_LEVEL
 		update_hud()
 		# The flag is immediate; queue_free() happens later. Start counting on the next tick.
-		active_assassin = null
+		active_threat = null
 		spawn_countdown = NEXT_SPAWN_DELAY
 		return
-	active_assassin.resolve_attack(player)
+	active_threat.resolve_attack(player)
 	if player.is_dead:
 		spawn_countdown = -1.0
