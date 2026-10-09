@@ -13,6 +13,8 @@ const MAX_APPROACH_SPEED: float = 100.0
 const NEXT_SPAWN_DELAY: float = 0.85
 const POINTS_PER_KILL: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
+const HIGH_SCORE_PATH: String = "user://high_score.cfg"
+var high_score: int = 0
 var score: int = 0
 var kills: int = 0
 # Supply before _ready() for a future higher-level start; progression stays relative to this run.
@@ -23,6 +25,7 @@ var active_assassin = null
 var encounter_rng := RandomNumberGenerator.new()
 
 @onready var player = $Player
+@onready var high_score_label: Label = $HUD/RunStats/HighScoreLabel
 @onready var score_label: Label = $HUD/RunStats/ScoreLabel
 @onready var kills_label: Label = $HUD/RunStats/KillsLabel
 @onready var level_label: Label = $HUD/RunStats/LevelLabel
@@ -37,12 +40,35 @@ func _init() -> void:
 ## A fresh scene starts a fresh encounter without resetting any existing Player state.
 func _ready() -> void:
 	level = run_start_level
+	load_high_score()
 	update_hud()
 	spawn_assassin()
 
 
-## Presentation reads the run counters; minimum padding expands naturally beyond six digits.
+## Load each fresh scene, including F2 reloads. Missing or invalid data leaves a zero record.
+func load_high_score() -> void:
+	high_score = 0
+	var save_data := ConfigFile.new()
+	if save_data.load(HIGH_SCORE_PATH) != OK:
+		return
+	# Do not coerce strings, floats or booleans into scores from malformed save data.
+	var saved_score: Variant = save_data.get_value("scores", "high_score", 0)
+	if typeof(saved_score) == TYPE_INT and saved_score >= 0:
+		high_score = saved_score
+
+
+## Save a new record immediately; a failed write must not interrupt the current run.
+func save_high_score() -> void:
+	var save_data := ConfigFile.new()
+	save_data.set_value("scores", "high_score", high_score)
+	var error: Error = save_data.save(HIGH_SCORE_PATH)
+	if error != OK:
+		push_warning("Could not save High Score to %s: %s" % [HIGH_SCORE_PATH, error_string(error)])
+
+
+## Presentation reads the record and run counters; padding expands naturally beyond six digits.
 func update_hud() -> void:
+	high_score_label.text = "High Score %06d" % high_score
 	score_label.text = "Score %06d" % score
 	kills_label.text = "Kills %d" % kills
 	level_label.text = "Level %d" % level
@@ -108,6 +134,10 @@ func _physics_process(delta: float) -> void:
 		var half_units: int = get_multiplier_half_units()
 		@warning_ignore("integer_division")
 		score += (POINTS_PER_KILL * half_units) / 2
+		# Observe the awarded score before progression; equality never rewrites the record.
+		if score > high_score:
+			high_score = score
+			save_high_score()
 		kills += 1
 		# Kills are all handled threats for now; future dodges can contribute to this total.
 		@warning_ignore("integer_division")
