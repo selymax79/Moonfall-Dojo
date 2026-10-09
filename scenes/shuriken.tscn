@@ -1,0 +1,31 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/shuriken.gd" id="1"]
+
+[sub_resource type="CircleShape2D" id="Body"]
+radius = 4.0
+
+[node name="Shuriken" type="Area2D"]
+collision_layer = 0
+collision_mask = 0
+monitoring = false
+monitorable = false
+script = ExtResource("1")
+
+[node name="BodyShape" type="CollisionShape2D" parent="."]
+shape = SubResource("Body")
+disabled = true
+
+[node name="Visuals" type="Node2D" parent="."]
+
+[node name="Star" type="Polygon2D" parent="Visuals"]
+color = Color(0.82, 0.89, 1, 1)
+polygon = PackedVector2Array(0, -4, 1.5, -1.5, 4, 0, 1.5, 1.5, 0, 4, -1.5, 1.5, -4, 0, -1.5, -1.5)
+
+[node name="BladeShade" type="Polygon2D" parent="Visuals"]
+color = Color(0.4, 0.55, 0.72, 1)
+polygon = PackedVector2Array(0, -4, 0, 0, 4, 0, 1.5, 1.5, 0, 4, 0, 0, -4, 0, -1.5, -1.5)
+
+[node name="Centre" type="Polygon2D" parent="Visuals"]
+color = Color(0.08, 0.14, 0.23, 1)
+polygon = PackedVector2Array(0, -1, 1, 0, 0, 1, -1, 0)

@@ -11,7 +11,8 @@ const KICK_EXTENSION_DURATION: float = 0.08
 const KICK_HOLD_DURATION: float = 0.16
 const KICK_RECOVERY_DURATION: float = 0.16
 const DUCK_CROUCH_DURATION: float = 0.08
-const DUCK_HOLD_DURATION: float = 0.20
+# The low hold gives the 8 px Shuriken a fair passage window; crouching remains responsive.
+const DUCK_HOLD_DURATION: float = 0.35
 const DUCK_RECOVERY_DURATION: float = 0.17
 const DUCK_HEIGHT_SCALE: float = 0.45
 # Extra airtime clears the 14 px Barrel without raising the 55 px apex; commitment lasts the full arc.

@@ -1,16 +1,16 @@
-## Runs one random threat at a time, with Player-first Assassin combat and spatial Barrel dodging.
-## Main advances active gameplay actors; resolved Barrels animate their harmless exit independently.
+## Runs one active threat at a time, with Player-first combat and spatial hazard dodging.
+## Main advances active gameplay actors; resolved hazards animate their harmless exit independently.
 extends Node2D
 
-enum ThreatType { RED, BLUE, BARREL }
-const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn")]
+enum ThreatType { RED, BLUE, BARREL, SHURIKEN }
+const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn"), preload("res://scenes/shuriken.tscn")]
 const THREAT_START_POSITION := Vector2(560, 300)
 const BASE_APPROACH_SPEED: float = 60.0
 const APPROACH_SPEED_PER_LEVEL: float = 5.0
 # Speed plateaus at Level 9: a conservative cap with about 195 ms of theoretical Blue input opportunity.
 # This is a tuning limit, not a mathematical impossibility boundary; attack timings stay fixed.
 const MAX_APPROACH_SPEED: float = 100.0
-# A brief breathing space after a kill or completed Barrel passage; negative means no spawn is pending.
+# A brief breathing space after a kill or completed hazard passage; negative means no spawn is pending.
 const NEXT_SPAWN_DELAY: float = 0.85
 const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
@@ -99,7 +99,7 @@ func award_successful_threat(threat_type: ThreatType) -> void:
 	if score > high_score:
 		high_score = score
 		save_high_score()
-	if threat_type == ThreatType.BARREL:
+	if threat_type == ThreatType.BARREL or threat_type == ThreatType.SHURIKEN:
 		dodges += 1
 	else:
 		kills += 1
@@ -120,7 +120,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func spawn_threat() -> void:
 	if player.is_dead or is_instance_valid(active_threat):
 		return
-	active_threat_type = encounter_rng.randi_range(0, 2) as ThreatType
+	active_threat_type = encounter_rng.randi_range(0, 3) as ThreatType
 	active_threat = THREAT_SCENES[active_threat_type].instantiate()
 	# Keep this second draw unconditional so seeded runs always consume type, then side.
 	var entry_side: int = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
@@ -128,6 +128,9 @@ func spawn_threat() -> void:
 	# Snapshot this level's speed at spawn; later level changes never modify an existing threat.
 	active_threat.movement_speed = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
 	active_threat.position = THREAT_START_POSITION
+	if active_threat_type == ThreatType.SHURIKEN:
+		active_threat.movement_speed *= active_threat.PROJECTILE_SPEED_MULTIPLIER
+		active_threat.position.y = active_threat.FLIGHT_HEIGHT
 	# Reflect the authored right spawn around Player: x=560 becomes x=80 at Player x=320.
 	active_threat.position.x = player.position.x + entry_side * (THREAT_START_POSITION.x - player.position.x)
 	add_child(active_threat)
@@ -137,10 +140,10 @@ func spawn_threat() -> void:
 ## Godot calls this at the fixed physics rate. Update both poses before testing their shapes.
 func _physics_process(delta: float) -> void:
 	player.advance_tick(delta)
-	# Death freezes a Barrel but still lets a surviving Assassin finish its existing recovery.
+	# Death freezes active hazards but lets a surviving Assassin finish its existing recovery.
 	if player.is_dead:
 		spawn_countdown = -1.0
-		if is_instance_valid(active_threat) and active_threat_type != ThreatType.BARREL:
+		if is_instance_valid(active_threat) and (active_threat_type == ThreatType.RED or active_threat_type == ThreatType.BLUE):
 			active_threat.advance_tick(delta, player.position.x, true)
 		return
 	if not is_instance_valid(active_threat):
@@ -150,14 +153,14 @@ func _physics_process(delta: float) -> void:
 				spawn_threat()
 		# A newly spawned threat starts moving on the following tick.
 		return
-	if active_threat_type == ThreatType.BARREL:
+	if active_threat_type == ThreatType.BARREL or active_threat_type == ThreatType.SHURIKEN:
 		active_threat.advance_tick(delta)
 		# Player's adaptive hurtbox is already current. Collision precedes completion.
 		active_threat.resolve_contact(player)
 		if player.is_dead:
 			spawn_countdown = -1.0
 		elif active_threat.is_complete:
-			# Reward passage once, independently of the Barrel's remaining cosmetic lifetime.
+			# Reward passage once, independently of the hazard's remaining cosmetic lifetime.
 			award_successful_threat(active_threat_type)
 			active_threat = null
 			spawn_countdown = NEXT_SPAWN_DELAY
