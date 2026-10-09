@@ -30,6 +30,11 @@ dev_restart={
 "events": [Object(InputEventKey,"physical_keycode":4194333)]
 }
 
+dev_level_up={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194335)]
+}
+
 jump={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":4194320)]

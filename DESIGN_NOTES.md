@@ -27,6 +27,18 @@ is ignored, so holding Down does not extend/restart Duck; another press is requi
 Arrow keys turn/jump/duck; Z punches; X kicks. F2 reloads the scene, including during death.
 Death cancels the action and plays a 0.40 s placeholder fall; the HUD stays visible.
 
+## Development Controls
+
+- **F2:** restart the current run; reset counters, development boost and scheduler; retain High Score.
+- **F4:** advance effective Level by exactly one per fresh press using a run-local `dev_level_boost`.
+  Level and run-relative multiplier refresh immediately, without changing Score, Kills, Dodges,
+  handled count or High Score. F4 itself never saves High Score; later scoring can update it normally.
+  Works during actions, approaches, empty gaps and death. It cannot restart spawning after death.
+
+F4 updates future difficulty and overlap eligibility. A shorter gap band shortens the remaining
+pacing wait while preserving elapsed time. Pending type/side, active speeds and response reservations
+stay unchanged; every admission still passes the fairness checks. F2/scene reload resets the boost to zero.
+
 ## Threat Vocabulary
 
 The intended response is **not a magic attack-type rule**. Current visual/hurtbox geometry
@@ -60,11 +72,14 @@ Assassins begin their moving telegraph farther out at higher speeds, preserving 
 ## Scoring / Progression
 
 Assassin success adds one Kill; Barrel/Shuriken passage adds one Dodge.
-`handled_threats = kills + dodges`; `level = run_start_level + floor(handled_threats / 4)`.
+`handled_threats = kills + dodges`;
+`level = run_start_level + floor(handled_threats / 4) + dev_level_boost` (boost defaults to zero).
 Each success earns 100 × current multiplier. Multiplier starts at ×1.0 and rises by
 0.5 for every three completed run-relative Levels, including future higher-level starts.
 Score uses the old/current multiplier **before** incrementing the counter and recalculating
-Level. Threat #12 scores ×1.0, then Level 4/×1.5; #24 scores ×1.5, then Level 7/×2.0.
+Level. Without development boosts, threat #12 scores ×1.0, then Level 4/×1.5;
+#24 scores ×1.5, then Level 7/×2.0. Boosted Levels use the same run-relative multiplier;
+three F4 presses from Level 1 make the next success worth 150, and four real successes then reach Level 5.
 
 Main stores multiplier in integer half-units. A single High Score loads from
 `user://high_score.cfg`, saves immediately when exceeded, and survives F2. Missing or

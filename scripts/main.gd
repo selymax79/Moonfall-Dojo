@@ -27,6 +27,8 @@ var kills: int = 0
 var dodges: int = 0
 # Supply before _ready() for a future higher-level start; progression stays relative to this run.
 var run_start_level: int = 1
+# Run-local testing offset: changes difficulty/multiplier without inventing handled threats.
+var dev_level_boost: int = 0
 var level: int = 1
 # Each record contains actor, type, lethal_at, response_start and response_end (absolute run seconds).
 # Only unresolved gameplay belongs here; at most two records keeps ownership explicit.
@@ -53,7 +55,7 @@ func _init() -> void:
 
 ## A fresh scene starts a fresh encounter without resetting any existing Player state.
 func _ready() -> void:
-	level = run_start_level
+	recalculate_level()
 	load_high_score()
 	update_hud()
 	select_pending_threat()
@@ -94,7 +96,7 @@ func update_hud() -> void:
 	multiplier_label.text = "Multiplier x%d.%d" % [half_units / 2, (half_units % 2) * 5]
 
 
-## Two half-units mean x1.0; each three completed run levels add another half-unit.
+## Two half-units mean x1.0; each three effective run levels (including dev boosts) add a half-unit.
 func get_multiplier_half_units() -> int:
 	# Truncation intentionally counts only complete groups of three levels.
 	@warning_ignore("integer_division")
@@ -114,17 +116,32 @@ func award_successful_threat(threat_type: ThreatType) -> void:
 		dodges += 1
 	else:
 		kills += 1
-	var handled_threats: int = kills + dodges
-	@warning_ignore("integer_division")
-	level = run_start_level + handled_threats / HANDLED_THREATS_PER_LEVEL
+	recalculate_level()
 	update_hud()
 
 
-## Temporary development convenience: reload the whole scene, even during actions or death.
+## Earned progression and development boosts share one formula, so real successes retain the boost.
+func recalculate_level() -> void:
+	var handled_threats: int = kills + dodges
+	@warning_ignore("integer_division")
+	level = run_start_level + handled_threats / HANDLED_THREATS_PER_LEVEL + dev_level_boost
+
+
+## Development controls bypass Player's action lock and remain available on the dead HUD.
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("dev_restart") and not event.is_echo():
 		get_viewport().set_input_as_handled()
 		get_tree().reload_current_scene()
+	elif event.is_action_pressed("dev_level_up") and not event.is_echo():
+		get_viewport().set_input_as_handled()
+		var previous_gap: float = get_spawn_gap()
+		dev_level_boost += 1
+		recalculate_level()
+		# Preserve elapsed gap time when crossing a pacing band. Only this admission gate changes;
+		# actor reservations, pending selection and fairness checks remain untouched.
+		if not player.is_dead and next_spawn_at > encounter_time:
+			next_spawn_at = maxf(encounter_time, next_spawn_at + get_spawn_gap() - previous_gap)
+		update_hud()
 
 
 ## Exactly two draws per selection, including the pending choice: type, then side; never reroll waits.
