@@ -25,6 +25,11 @@ window/stretch/scale_mode="fractional"
 
 [input]
 
+pause_game={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":80)]
+}
+
 dev_restart={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":4194333)]

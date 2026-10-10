@@ -46,6 +46,7 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var dodges_label: Label = $HUD/RunStats/DodgesLabel
 @onready var level_label: Label = $HUD/RunStats/LevelLabel
 @onready var multiplier_label: Label = $HUD/RunStats/MultiplierLabel
+@onready var pause_overlay: Control = $HUD/PauseOverlay
 
 
 ## Randomise before entering the tree so tests can override the seed before the first spawn.
@@ -127,12 +128,20 @@ func recalculate_level() -> void:
 	level = run_start_level + handled_threats / HANDLED_THREATS_PER_LEVEL + dev_level_boost
 
 
-## Development controls bypass Player's action lock and remain available on the dead HUD.
+## Main always processes controls; Player and threat nodes are pausable and receive no paused input.
+## Fresh presses prevent a held P key from repeatedly toggling pause.
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("dev_restart") and not event.is_echo():
+	if event.is_echo():
+		return
+	if event.is_action_pressed("pause_game"):
 		get_viewport().set_input_as_handled()
+		set_game_paused(not get_tree().paused)
+	elif event.is_action_pressed("dev_restart"):
+		get_viewport().set_input_as_handled()
+		# SceneTree outlives this scene, so pause must not survive a development restart.
+		set_game_paused(false)
 		get_tree().reload_current_scene()
-	elif event.is_action_pressed("dev_level_up") and not event.is_echo():
+	elif event.is_action_pressed("dev_level_up"):
 		get_viewport().set_input_as_handled()
 		var previous_gap: float = get_spawn_gap()
 		dev_level_boost += 1
@@ -142,6 +151,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		if not player.is_dead and next_spawn_at > encounter_time:
 			next_spawn_at = maxf(encounter_time, next_spawn_at + get_spawn_gap() - previous_gap)
 		update_hud()
+
+
+## SceneTree freezes pausable actors (including cosmetic aftermath); HUD remains responsive.
+func set_game_paused(paused: bool) -> void:
+	get_tree().paused = paused
+	pause_overlay.visible = paused
 
 
 ## Exactly two draws per selection, including the pending choice: type, then side; never reroll waits.
@@ -204,6 +219,8 @@ func try_spawn_pending_threat() -> void:
 	if lethal_at - duration < ready_at + turn_time + FAIRNESS_MARGIN:
 		return
 	var actor = THREAT_SCENES[pending_type].instantiate()
+	# Main is always-processing for controls; actors must not inherit that exception.
+	actor.process_mode = Node.PROCESS_MODE_PAUSABLE
 	actor.configure_entry(pending_side)
 	actor.movement_speed = speed
 	actor.position = THREAT_START_POSITION
@@ -234,6 +251,9 @@ func cancel_pending_spawn() -> void:
 ## All actors move first, then Player attacks, then lethal checks, then surviving hazard rewards.
 ## Separate passes preserve Player-first Assassin priority regardless of the array's encounter order.
 func _physics_process(delta: float) -> void:
+	# Only Main needs this guard: it stays responsive for P/F2/F4 while SceneTree pauses actors.
+	if get_tree().paused:
+		return
 	encounter_time += delta
 	player.advance_tick(delta)
 	if player.is_dead:

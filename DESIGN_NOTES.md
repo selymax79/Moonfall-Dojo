@@ -24,16 +24,30 @@ Distances are logical pixels; times are seconds and do not scale with Level.
 Standing hurtbox is 16×40; fully ducked is 16×18. Turning does not squash this hurtbox.
 Committed actions discard new action/turn inputs; no general buffering. Keyboard echo
 is ignored, so holding Down does not extend/restart Duck; another press is required.
-Arrow keys turn/jump/duck; Z punches; X kicks. F2 reloads the scene, including during death.
+Arrow keys turn/jump/duck; Z punches; X kicks; **P pauses/resumes** (InputMap `pause_game`).
 Death cancels the action and plays a 0.40 s placeholder fall; the HUD stays visible.
+
+## Pause
+
+P toggles SceneTree pause on a fresh, non-echo press, including during death. A centred
+PAUSED overlay and P-to-resume hint appear over the HUD. Player actions/turning/death,
+all threat movement/attacks/cosmetics, and scheduler gameplay time freeze without wall-clock
+catch-up. Gameplay presses during pause are discarded, not queued for resume.
+
+Main uses Always processing so P/F2/F4 remain available, with one central pause guard before
+its simulation tick. Player and spawned threat roots use Pausable processing, including
+Barrel/Shuriken's independent cosmetic ticks. Future gameplay/audio nodes must likewise
+use Pausable processing rather than inherit Main's control exception; no audio exists yet.
 
 ## Development Controls
 
-- **F2:** restart the current run; reset counters, development boost and scheduler; retain High Score.
+- **F2:** restart the current run unpaused; reset counters, development boost and scheduler;
+  retain High Score. Explicitly clears SceneTree pause before reloading.
 - **F4:** advance effective Level by exactly one per fresh press using a run-local `dev_level_boost`.
   Level and run-relative multiplier refresh immediately, without changing Score, Kills, Dodges,
   handled count or High Score. F4 itself never saves High Score; later scoring can update it normally.
-  Works during actions, approaches, empty gaps and death. It cannot restart spawning after death.
+  Works during actions, approaches, empty gaps, pause and death. It cannot restart spawning after death.
+  While paused, Level/Multiplier update behind the overlay but gameplay remains frozen.
 
 F4 updates future difficulty and overlap eligibility. A shorter gap band shortens the remaining
 pacing wait while preserving elapsed time. Pending type/side, active speeds and response reservations
