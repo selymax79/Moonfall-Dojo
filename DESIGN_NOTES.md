@@ -1,6 +1,7 @@
 # Moonfall Dojo — Current Design Reference
 
 [AGENTS.md](AGENTS.md) defines intended scope; this reference describes implemented behaviour.
+[Roadmap.md](Roadmap.md) defines the development sequence, milestone status and next target.
 
 ## Core Game Loop
 
@@ -26,6 +27,28 @@ Committed actions discard new action/turn inputs; no general buffering. Keyboard
 is ignored, so holding Down does not extend/restart Duck; another press is required.
 Arrow keys turn/jump/duck; Z punches; X kicks; **P pauses/resumes** (InputMap `pause_game`).
 Death cancels the action and plays a 0.40 s placeholder fall; the HUD stays visible.
+
+## Game Over / Restart
+
+After Player's existing 0.40 s death animation completes, a centred GAME OVER message and
+**Enter to restart** prompt appear. The HUD retains Score, High Score, Kills, Dodges, Level
+and multiplier. Death immediately cancels pending spawning and prevents further gameplay
+rewards. Surviving Assassins finish recovery; active hazards freeze; already-resolved
+Barrel/Shuriken cosmetics may finish and remove themselves without further rewards.
+
+Enter (InputMap `restart_run`) accepts a fresh, non-echo press only while Game Over is
+visible and the game is unpaused. Enter during play, actions, the death animation or pause
+is discarded, not buffered. Holding it before death cannot trigger a later restart.
+Restart reloads the scene into an unpaused Level 1 run: Score/Kills/Dodges/development boost
+reset to zero, multiplier to x1.0, Player and scheduler reset, and old threat nodes are removed.
+The fresh scheduler starts its normal first encounter and selects a new pending threat.
+The saved High Score survives both Enter restart and F2; new records still save on scoring.
+
+P remains available while dead. Pause freezes the death animation and delays Game Over;
+at Game Over, PAUSED temporarily replaces the message. P resumes and restores the restart
+prompt; Enter is then available again. F2 can restart immediately, even during death or pause,
+and always clears pause. F4 retains its development behaviour: it can change Level/multiplier
+on the dead or paused HUD without awarding points or restarting spawning.
 
 ## Pause
 

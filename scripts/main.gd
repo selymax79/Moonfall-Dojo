@@ -46,6 +46,7 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var dodges_label: Label = $HUD/RunStats/DodgesLabel
 @onready var level_label: Label = $HUD/RunStats/LevelLabel
 @onready var multiplier_label: Label = $HUD/RunStats/MultiplierLabel
+@onready var game_over_overlay: Control = $HUD/GameOverOverlay
 @onready var pause_overlay: Control = $HUD/PauseOverlay
 
 
@@ -138,9 +139,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_game_paused(not get_tree().paused)
 	elif event.is_action_pressed("dev_restart"):
 		get_viewport().set_input_as_handled()
-		# SceneTree outlives this scene, so pause must not survive a development restart.
-		set_game_paused(false)
-		get_tree().reload_current_scene()
+		restart_run()
+	elif event.is_action_pressed("restart_run") and game_over_overlay.visible and not get_tree().paused:
+		get_viewport().set_input_as_handled()
+		restart_run()
 	elif event.is_action_pressed("dev_level_up"):
 		get_viewport().set_input_as_handled()
 		var previous_gap: float = get_spawn_gap()
@@ -153,10 +155,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		update_hud()
 
 
+## Both restart controls create a clean run; the persistent High Score is loaded by the new scene.
+func restart_run() -> void:
+	# SceneTree outlives this scene, so pause must not survive a restart.
+	set_game_paused(false)
+	get_tree().reload_current_scene()
+
+
 ## SceneTree freezes pausable actors (including cosmetic aftermath); HUD remains responsive.
 func set_game_paused(paused: bool) -> void:
 	get_tree().paused = paused
 	pause_overlay.visible = paused
+	# The two centred messages share space; restore Game Over immediately when resuming.
+	game_over_overlay.visible = not paused and player.is_dead and player.death_elapsed >= player.DEATH_DURATION
 
 
 ## Exactly two draws per selection, including the pending choice: type, then side; never reroll waits.
@@ -258,6 +269,9 @@ func _physics_process(delta: float) -> void:
 	player.advance_tick(delta)
 	if player.is_dead:
 		cancel_pending_spawn()
+		# Use Player's gameplay clock: pausing the fall also delays Game Over and its restart input.
+		if player.death_elapsed >= player.DEATH_DURATION:
+			game_over_overlay.show()
 		# Preserve Assassin recovery after death; active hazards freeze and cosmetics remain independent.
 		for record in active_threats:
 			if is_assassin(record.type):

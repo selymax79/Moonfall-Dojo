@@ -14,7 +14,18 @@ Moonfall Dojo is a learning project for both Godot and Codex. Keep the architect
 - Do not add features merely because they seem useful or implement future ideas without an explicit request.
 - After implementation, report the files changed and what was actually tested. Never claim a test was performed unless it was.
 
-This document defines the intended game, not permission to implement everything at once. Implement only the work explicitly requested. The initial documentation task must create only this file: no scenes, scripts, folders, assets, other files, or changes to `project.godot`.
+This document defines the intended game, not permission to implement everything at once. Implement only the work explicitly requested.
+
+## Roadmap alignment — standing instructions
+
+- Before development work, read this file, [DESIGN_NOTES.md](DESIGN_NOTES.md) and [Roadmap.md](Roadmap.md); inspect the current code, Git status and recent history.
+- This file defines standing project rules and intended scope. Design notes describe the currently implemented game. The roadmap defines milestone order, completion criteria, stop conditions and verification requirements; follow it when selecting and delivering work.
+- When the user asks to continue development without a specific ticket, identify the earliest incomplete milestone and implement one small, independently verifiable ticket within it. Explain the approach before substantial edits. Do not advance to another milestone in the same task unless explicitly instructed.
+- An explicit user ticket takes priority over roadmap sequencing. The roadmap does not override this file or authorise speculative features, unrelated refactors or future milestones.
+- Verify milestone status against actual repository code and verification evidence; never trust roadmap labels blindly. Distinguish the committed baseline from uncommitted work and report discrepancies. Completion requires implemented functionality, actual verification and no known blocking defects; no Phase 3 milestone may be marked complete without that evidence. Do not redo completed work for polish unless requested.
+- If code, design notes or roadmap requirements materially disagree, report the discrepancy and follow the roadmap's stop conditions before implementation. Account for explicit decisions already authorised by the user.
+- After verified milestone completion, update its status and next target in the roadmap. Update design notes for settled behaviour, keeping future plans in the roadmap rather than turning design notes into a changelog.
+- Report actual tests, changed files, remaining limitations and final Git status. Do not commit unless explicitly authorised.
 
 ## Project overview
 
