@@ -2,6 +2,10 @@
 ## The root stays at the floor; Visuals moves/scales around its feet (negative Y is upward).
 extends Node2D
 
+# Feedback observes accepted actions/death without changing timing or collision rules.
+signal action_started(action: int)
+signal died
+
 # Durations are seconds and distances are logical pixels; player timings stay fixed across levels.
 const TURN_DURATION: float = 0.10
 const PUNCH_EXTENSION_DURATION: float = 0.06
@@ -109,6 +113,7 @@ func start_action(action: Action) -> void:
 	visuals.scale.x = target_direction
 	action_elapsed = 0.0
 	current_action = action
+	action_started.emit(action)
 
 
 ## Punch, Kick and Duck share extension/hold/recovery timing; Jump has its own curved motion.
@@ -221,6 +226,7 @@ func receive_hit() -> void:
 	death_leg_rotation = kick_leg.rotation
 	death_leg_scale = kick_leg.scale
 	death_kick_extension = kick_extension
+	died.emit()
 
 
 ## Smoothstep eases into a permanent fallen pose while returning the limbs to rest.

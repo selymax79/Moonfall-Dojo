@@ -19,7 +19,9 @@ Selection defaults to 1 on each application launch and is retained when returnin
 
 Controls lists Left/Right = Turn, Up = Jump, Down = Duck, Z = Punch, X = Kick,
 P = Pause/Resume, Enter = Select/Confirm/Restart and Esc = Back where available.
-Options explains that audio options will be available after audio implementation; no settings yet.
+Options provides Music Volume and SFX Volume (0–100, defaults 70/80). Up/Down selects;
+Left/Right adjusts by 5, applies immediately and saves actual changes. Zero mutes that bus;
+100 uses its reference gain. Enter/Esc returns to Title.
 High Scores shows ten ranked rows, with placeholders for empty slots rather than fake saved scores.
 Esc or Enter returns from these screens to Title with the selected row retained.
 Development keys are not shown as normal controls; remapping is not implemented.
@@ -97,7 +99,8 @@ catch-up. Gameplay presses during pause are discarded, not queued for resume.
 Main uses Always processing so P/F2/F4 remain available, with one central pause guard before
 its simulation tick. Player and spawned threat roots use Pausable processing, including
 Barrel/Shuriken's independent cosmetic ticks. Future gameplay/audio nodes must likewise
-use Pausable processing rather than inherit Main's control exception; no audio exists yet.
+use Pausable processing rather than inherit Main's control exception. Gameplay audio is
+Pausable; the separate UI voice remains Always processing for pause/resume feedback.
 
 ## Development Controls
 
@@ -188,7 +191,10 @@ the highest unlock if greater. F4's offset is excluded even while earning real l
 boosted run. Real Level 3 boosted to effective Level 20 still unlocks only Level 3.
 Previously unlocked higher starts may unlock further levels through normal progression.
 
-Writes occur on migration, confirmed leaderboard insertion or a new legitimate highest Level.
+Writes occur on migration, confirmed leaderboard insertion, a new legitimate highest Level,
+or an actual audio-volume change. `[audio] music_volume` and `sfx_volume` share this file.
+Finite numeric volume values clamp to 0–100 and round to integers; missing, non-numeric or
+non-finite values use 70/80. Settings saves preserve the leaderboard, unlock and unrelated fields.
 A temporary file is written completely before replacing the save. Failure warns without interrupting
 gameplay or destroying the previous file; records stay in memory across restart and can be written
 by a subsequent save. Unconfirmed run scores are not persisted. No autoload or external service exists.
@@ -281,7 +287,53 @@ fixed geometry/timings: retuning them requires recalculation and pair/regression
 nearest-neighbour filtering, Compatibility renderer, dark navy clear colour.
 All artwork is currently simple placeholder geometry; there is no drawn floor/background.
 
+## Audio Foundation
+
+[game_audio.gd](scripts/game_audio.gd) owns nine fixed, scene-defined AudioStreamPlayers under
+Main: Music, Player, Danger, two Impact voices, System, UI and two quiet Hazard loops.
+There is no autoload, runtime synthesiser or audio-driven gameplay clock. Scene replacement
+stops and removes all old voices before the new run begins. The small impact pool permits
+cosmetic impacts alongside combat feedback; the two hazard voices match scheduler capacity.
+
+[default_bus_layout.tres](default_bus_layout.tres) defines Master, Music and SFX. Music routes
+to Music; every other voice, including UI, routes to SFX. Both feed Master with -6 dB headroom.
+Per-voice gains keep danger/player accents above the quiet hazard loops and background music.
+Volume options change bus gain; they do not alter streams, timings or gameplay RNG.
+
+The 21 original placeholder WAVs use offline layers of damped steel, wood, cloth/air noise,
+body impacts and FM bass/plucks. Title and gameplay share the D–A–Bb–A / F–E–D motif within
+a D/E/F/A/Bb vocabulary. Title is an eight-bar 92 BPM loop (~20.87 s); gameplay transforms
+the same theme at 132 BPM (~14.55 s) with tighter bass, taiko-like hits and wood accents.
+Shuriken flight has dry air cuts and fixed-pitch steel ticks, with no pitch modulation;
+Barrel break-up layers a low thump, staggered wood cracks, short noise and hoop clatter.
+[audio/README.md](audio/README.md) documents assets, mix and regeneration
+using [generate_audio.gd](tools/generate_audio.gd). These are original synthesis recipes,
+not samples or melodies copied from another game. The current audio foundation has user manual
+listening acceptance; Milestone 26 is complete.
+
+Audio hooks observe existing transitions without changing collision or action durations:
+
+- Accepted Punch/Kick/Jump/Duck starts play an action accent; they do not imply a successful hit.
+- Red/Blue WINDUP → STRIKE plays the respective danger cue; an actual defeat plays its impact.
+- Unresolved Barrel/Shuriken play quiet movement loops from spawn until resolution/removal/death.
+- Barrel EXPLODING and Shuriken SETTLED transitions each play one cosmetic impact.
+- Lethal Player resolution immediately stops music and other sounds, then plays death once.
+- After the existing 0.40 s death animation, Game Over plays one short thematic sting (~1.05 s).
+- Menu movement/confirmation, accepted initials edits/confirmation and Level increases have cues.
+  Rapid F4 restarts one Level-up voice instead of stacking; dead F4 remains silent.
+
+Title music continues uninterrupted through Controls, High Scores and Options. Start/restart
+switches to one gameplay loop. Initials entry and its leaderboard retain the Game Over sting/UI
+without background music; returning to Title stops any remaining sting and starts Title music.
+No optional turn sound or adaptive music is implemented.
+
+Pause freezes gameplay music/SFX playheads; UI alone plays the pause/resume cue. Resume continues
+the same streams without restarting music or catching up wall-clock time. A Level-up cue created
+by paused F4 stays paused until resume. Native output may drain one already-submitted audio buffer
+(~12 ms measured); subsequent paused time produces no playhead drift. F2 clears pause and stops
+all old audio before starting the fresh run. Gameplay audio callbacks never award points.
+
 ## Not Yet Implemented
 
-Full background art; polished sprites; audio/music and usable audio options; full pause menu;
+Full background art; polished sprites; full pause menu;
 remappable controls; controller bindings; advanced authored encounter patterns.

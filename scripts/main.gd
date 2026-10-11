@@ -6,6 +6,7 @@ extends Node2D
 enum GameState { TITLE, CONTROLS, OPTIONS, HIGH_SCORES, INITIALS_ENTRY, RUN }
 var game_state: GameState = GameState.TITLE
 var menu_selection: int = 0
+var options_selection: int = 0
 var selected_start_level: int = 1
 var initials: String = ""
 # Shared across fresh Main instances so saves load once and a failed write does not lose session data.
@@ -13,6 +14,7 @@ var records
 var result_checked: bool = false
 # Set before entering the tree by the shared start/restart path. Application startup keeps Title.
 var start_in_run: bool = false
+var play_start_cue: bool = false
 var run_change_pending: bool = false
 
 enum ThreatType { RED, BLUE, BARREL, SHURIKEN }
@@ -53,6 +55,7 @@ var pending_side: int = 0
 var encounter_rng := RandomNumberGenerator.new()
 
 @onready var player = $Player
+@onready var game_audio = $Audio
 @onready var high_score_label: Label = $HUD/RunStats/HighScoreLabel
 @onready var score_label: Label = $HUD/RunStats/ScoreLabel
 @onready var kills_label: Label = $HUD/RunStats/KillsLabel
@@ -84,14 +87,21 @@ func _ready() -> void:
 	run_start_level = clampi(run_start_level, 1, records.highest_level)
 	recalculate_level()
 	update_hud()
+	game_audio.apply_volumes(records.music_volume, records.sfx_volume)
+	player.action_started.connect(game_audio.play_action)
+	player.died.connect(game_audio.begin_death)
 	if start_in_run:
 		game_state = GameState.RUN
+		game_audio.play_music("gameplay")
+		if play_start_cue:
+			game_audio.play_ui("menu_confirm")
 		select_pending_threat()
 		try_spawn_pending_threat()
 	else:
 		# Hidden Player must not receive menu arrow keys or accumulate committed actions.
 		player.process_mode = Node.PROCESS_MODE_DISABLED
 		player.hide()
+		game_audio.play_music("title")
 	update_menu()
 
 
@@ -120,26 +130,39 @@ func update_menu() -> void:
 	$HUD/HighScoresOverlay/Initials.text = names.trim_suffix("\n")
 	$HUD/HighScoresOverlay/Scores.text = scores.trim_suffix("\n")
 	$HUD/InitialsOverlay/InitialsLabel.text = " ".join((initials + "___").substr(0, 3).split(""))
+	$HUD/OptionsOverlay/MusicVolume.text = ("> Music Volume  %d <" if options_selection == 0 else "Music Volume  %d") % records.music_volume
+	$HUD/OptionsOverlay/SFXVolume.text = ("> SFX Volume  %d <" if options_selection == 1 else "SFX Volume  %d") % records.sfx_volume
 
 
 ## Explicit destinations keep navigation separate from gameplay input and RNG.
 func handle_menu_input(event: InputEvent) -> void:
 	if game_state == GameState.INITIALS_ENTRY:
 		handle_initials_input(event)
+	elif game_state == GameState.OPTIONS:
+		handle_options_input(event)
 	elif game_state != GameState.TITLE:
 		if event.is_action_pressed("menu_back") or event.is_action_pressed("menu_accept"):
 			game_state = GameState.TITLE
+			game_audio.play_ui("menu_confirm")
+			game_audio.play_music("title")
 	elif event.is_action_pressed("menu_up"):
 		menu_selection = posmod(menu_selection - 1, 5)
+		game_audio.play_ui("menu_move")
 	elif event.is_action_pressed("menu_down"):
 		menu_selection = (menu_selection + 1) % 5
+		game_audio.play_ui("menu_move")
 	elif menu_selection == 1 and event.is_action_pressed("menu_left"):
+		if selected_start_level > 1:
+			game_audio.play_ui("menu_move")
 		selected_start_level = maxi(1, selected_start_level - 1)
 	elif menu_selection == 1 and event.is_action_pressed("menu_right"):
 		# Check before adding so even an extreme edited integer cannot overflow the selector.
 		if selected_start_level < records.highest_level:
 			selected_start_level += 1
+			game_audio.play_ui("menu_move")
 	elif event.is_action_pressed("menu_accept"):
+		if menu_selection >= 2:
+			game_audio.play_ui("menu_confirm")
 		match menu_selection:
 			0, 1: start_new_run()
 			2: game_state = GameState.HIGH_SCORES
@@ -148,20 +171,42 @@ func handle_menu_input(event: InputEvent) -> void:
 	update_menu()
 
 
+## Settings apply immediately and save only on an actual change; no gameplay input reaches Player.
+func handle_options_input(event: InputEvent) -> void:
+	if event.is_action_pressed("menu_back") or event.is_action_pressed("menu_accept"):
+		game_state = GameState.TITLE
+		game_audio.play_ui("menu_confirm")
+	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
+		options_selection = 1 - options_selection
+		game_audio.play_ui("menu_move")
+	elif event.is_action_pressed("menu_left") or event.is_action_pressed("menu_right"):
+		var previous: int = records.music_volume if options_selection == 0 else records.sfx_volume
+		var step: int = 5 if event.is_action_pressed("menu_right") else -5
+		var amount: int = clampi(previous + step, 0, 100)
+		if amount != previous:
+			records.set_audio_volume(options_selection == 0, amount)
+			game_audio.apply_volumes(records.music_volume, records.sfx_volume)
+			game_audio.play_ui("menu_move")
+
+
 ## Direct typing is deliberately separate from action bindings (P enters a letter, never pause).
 func handle_initials_input(event: InputEvent) -> void:
 	if event.is_action_pressed("menu_accept") and initials.length() == 3:
 		records.submit_score(initials, score)
+		game_audio.play_ui("high_score")
 		game_state = GameState.HIGH_SCORES
 		update_hud()
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_BACKSPACE or event.physical_keycode == KEY_BACKSPACE:
+			if not initials.is_empty():
+				game_audio.play_ui("menu_move")
 			initials = initials.left(maxi(0, initials.length() - 1))
 		elif initials.length() < 3 and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
 			# Navigation/function keys have unicode=0; reject them before constructing a character.
 			var code: int = event.unicode
 			if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
 				initials += String.chr(code).to_upper()
+				game_audio.play_ui("menu_move")
 
 
 ## Decide once after the death animation. Qualifying runs freeze into an input-only entry screen.
@@ -169,6 +214,7 @@ func show_run_result() -> void:
 	if result_checked:
 		return
 	result_checked = true
+	game_audio.play_game_over()
 	if records.qualifies(score):
 		game_state = GameState.INITIALS_ENTRY
 		for child in get_children():
@@ -203,6 +249,7 @@ func get_multiplier_half_units() -> int:
 ## Reward a gameplay success before releasing its unresolved record.
 ## Score first so a Level-boundary threat still earns the old multiplier; cosmetics never call this.
 func award_successful_threat(threat_type: ThreatType) -> void:
+	var previous_level: int = level
 	var half_units: int = get_multiplier_half_units()
 	@warning_ignore("integer_division")
 	score += (POINTS_PER_THREAT * half_units) / 2
@@ -211,6 +258,8 @@ func award_successful_threat(threat_type: ThreatType) -> void:
 	else:
 		kills += 1
 	recalculate_level()
+	if level > previous_level:
+		game_audio.play_level_up()
 	@warning_ignore("integer_division")
 	records.unlock_level(run_start_level + (kills + dodges) / HANDLED_THREATS_PER_LEVEL)
 	update_hud()
@@ -246,6 +295,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		var previous_gap: float = get_spawn_gap()
 		dev_level_boost += 1
 		recalculate_level()
+		game_audio.play_level_up()
 		# Preserve elapsed gap time when crossing a pacing band. Only this admission gate changes;
 		# actor reservations, pending selection and fairness checks remain untouched.
 		if not player.is_dead and next_spawn_at > encounter_time:
@@ -266,6 +316,7 @@ func replace_with_run() -> void:
 	var tree := get_tree()
 	var next_run = load(scene_file_path).instantiate()
 	next_run.start_in_run = true
+	next_run.play_start_cue = true
 	next_run.records = records
 	next_run.run_start_level = run_start_level if game_state == GameState.RUN else selected_start_level
 	next_run.selected_start_level = next_run.run_start_level
@@ -275,6 +326,7 @@ func replace_with_run() -> void:
 		next_run.encounter_rng.state = encounter_rng.state
 	# Configure before _ready(): ordinary scene reload would return to Title instead of a run.
 	set_game_paused(false)
+	game_audio.stop_all()
 	tree.root.remove_child(self)
 	tree.root.add_child(next_run)
 	tree.current_scene = next_run
@@ -283,7 +335,10 @@ func replace_with_run() -> void:
 
 ## SceneTree freezes pausable actors (including cosmetic aftermath); HUD remains responsive.
 func set_game_paused(paused: bool) -> void:
+	var changed: bool = get_tree().paused != paused
 	get_tree().paused = paused
+	if changed:
+		game_audio.set_game_paused(paused)
 	pause_overlay.visible = paused
 	# The two centred messages share space; restore Game Over immediately when resuming.
 	game_over_overlay.visible = not paused and player.is_dead and player.death_elapsed >= player.DEATH_DURATION
@@ -358,6 +413,16 @@ func try_spawn_pending_threat() -> void:
 	if pending_type == ThreatType.SHURIKEN:
 		actor.position.y = actor.FLIGHT_HEIGHT
 	add_child(actor)
+	# Signals are presentation hooks only; no audio callback changes reservations or collision.
+	if is_assassin(pending_type):
+		actor.attack_started.connect(game_audio.play_attack.bind(pending_type))
+	else:
+		game_audio.start_hazard(actor.get_instance_id(), pending_type)
+		actor.tree_exiting.connect(game_audio.stop_hazard.bind(actor.get_instance_id()))
+		if pending_type == ThreatType.BARREL:
+			actor.exploded.connect(game_audio.play_impact.bind("barrel_explosion"))
+		else:
+			actor.landed.connect(game_audio.play_impact.bind("shuriken_impact"))
 	active_threats.append({"actor": actor, "type": pending_type, "lethal_at": lethal_at,
 		"response_start": lethal_at - duration, "response_end": lethal_at + duration})
 	next_spawn_at = encounter_time + get_spawn_gap()
@@ -366,6 +431,11 @@ func try_spawn_pending_threat() -> void:
 
 ## Release gameplay ownership immediately; harmless hazard animation remains owned by its node.
 func finish_threat(record: Dictionary) -> void:
+	if is_assassin(record.type):
+		game_audio.play_defeat(record.type)
+	else:
+		# A resolved hazard no longer needs an approach cue; its impact has its own later signal.
+		game_audio.stop_hazard(record.actor.get_instance_id())
 	award_successful_threat(record.type as ThreatType)
 	active_threats.erase(record)
 	# Use the new Level's pacing after progression. Already approaching actors keep their reservations.

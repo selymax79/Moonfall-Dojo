@@ -33,8 +33,9 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 23 — Local Top-10 High Score Table | COMPLETE: persistence, migration, entry flow and rendering verified. |
 | 24 — Highest Level Unlock + Start Level | COMPLETE: legitimate unlocks, higher starts and restarts verified. |
 | 25 — Controls / Options Shell | COMPLETE: keyboard navigation and input isolation verified. |
-| 26 — Audio Foundation | NEXT: not implemented. |
-| 27–34 | Pending: proceed in the sequence below. |
+| 26 — Audio Foundation | COMPLETE: automated integration verified and redesigned audio accepted through user listening. |
+| 27 — Environment Art Pass | NEXT: not started. |
+| 28–34 | Pending: proceed in the sequence below. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -73,6 +74,25 @@ Separate-process startup loaded the confirmed leaderboard and unlock while selec
 All title selections, selector maximum, full/partial tables, initials entry, Controls, Options,
 Level-1/Level-10 runs and both Game Over outcomes were rendered and inspected at 640×360.
 Tests used isolated user data and injected input; no physical keyboard playtesting was performed.
+
+Milestone 26 adds 21 original generated WAVs, scene-local fixed playback voices, Master/Music/SFX
+buses and persistent Music/SFX options. Automated audio verification passed 3,625 checks for
+event counts, routing, volume, death, pause and repeated restarts; settings sanitisation/migration
+passed 33 checks. All 21 source assets passed format/peak checks. The 172 feature-flow, 621
+combat/progression, 116,980 pause, 318,498 F4 and 2,716,418 scheduler checks passed with audio
+integrated, including 384 pair cases and 9,000 encounters. Another 113,223 menu-determinism
+checks matched 200 encounters after 2 s versus 20 s menu dwell. Separate-process startup
+restored volumes/records and applied their bus gains. The 640×360 Options render was inspected.
+These tests used isolated save data and injected input. User listening accepted the integration
+but rejected the initial sound design. The replacement 21 assets use named wood/steel/body/air
+layers and a shared title/gameplay motif. The 3,625 audio, 172 feature-flow, 621 combat/progression
+and 33 settings checks passed again with replacements, as did separate-process volume restoration.
+Regeneration reproduced all 21 hashes; all four source loops have matching endpoint samples.
+A native nine-voice stress capture at full settings remained below clipping. Runtime scripts,
+scenes, project settings and buses match the accepted integration byte-for-byte.
+User manual listening accepted the redesigned audio foundation: “Feels a lot better.”
+Together with the automated verification above, this completes Milestone 26.
+Milestone 27 is the next target; it has not been started.
 
 This status is a checkpoint, not a substitute for inspecting the current checkout. Keep it
 and CURRENT NEXT TARGET aligned after verified completion. See [DESIGN_NOTES.md](DESIGN_NOTES.md)
@@ -731,8 +751,8 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 26 — Audio Foundation — NEXT**
+**Milestone 27 — Environment Art Pass — NEXT**
 
-Continue sequentially from there.
+Milestone 26 is complete following automated verification and user manual listening acceptance.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

@@ -1,16 +1,22 @@
-## Local arcade records. Main shares this object across scene replacements; no autoload is needed.
+## Local arcade records and audio settings, shared across Main replacements without an autoload.
 extends RefCounted
 
 const SAVE_PATH: String = "user://high_score.cfg"
 const TABLE_SIZE: int = 10
+const DEFAULT_MUSIC_VOLUME: int = 70
+const DEFAULT_SFX_VOLUME: int = 80
 var entries: Array[Dictionary] = []
 var highest_level: int = 1
+var music_volume: int = DEFAULT_MUSIC_VOLUME
+var sfx_volume: int = DEFAULT_SFX_VOLUME
 var save_data := ConfigFile.new()
 
 
 func load_records() -> void:
 	entries.clear()
 	highest_level = 1
+	music_volume = DEFAULT_MUSIC_VOLUME
+	sfx_volume = DEFAULT_SFX_VOLUME
 	save_data = ConfigFile.new()
 	if save_data.load(SAVE_PATH) != OK:
 		save_data = ConfigFile.new()
@@ -23,12 +29,32 @@ func load_records() -> void:
 	var saved_level: Variant = save_data.get_value("progress", "highest_level", 1)
 	if typeof(saved_level) == TYPE_INT and saved_level >= 1:
 		highest_level = saved_level
+	music_volume = sanitise_volume(save_data.get_value("audio", "music_volume", DEFAULT_MUSIC_VOLUME), DEFAULT_MUSIC_VOLUME)
+	sfx_volume = sanitise_volume(save_data.get_value("audio", "sfx_volume", DEFAULT_SFX_VOLUME), DEFAULT_SFX_VOLUME)
 	# An explicit entries key, even an empty table, is authoritative. Never re-import it each launch.
 	if not save_data.has_section_key("scores", "entries"):
 		var legacy: Variant = save_data.get_value("scores", "high_score", 0)
 		if valid_score(legacy) and legacy > 0:
 			insert_sorted({"initials": "AAA", "score": legacy})
 			save_records()
+
+
+## Numeric settings clamp before conversion; invalid types/non-finite values use sensible defaults.
+func sanitise_volume(value: Variant, fallback: int) -> int:
+	if (typeof(value) == TYPE_INT or typeof(value) == TYPE_FLOAT) and is_finite(float(value)):
+		return roundi(clampf(float(value), 0.0, 100.0))
+	return fallback
+
+
+func set_audio_volume(music_setting: bool, amount: int) -> void:
+	amount = clampi(amount, 0, 100)
+	if music_setting:
+		if music_volume == amount: return
+		music_volume = amount
+	else:
+		if sfx_volume == amount: return
+		sfx_volume = amount
+	save_records()
 
 
 func valid_score(value: Variant) -> bool:
@@ -81,6 +107,8 @@ func unlock_level(earned_level: int) -> void:
 func save_records() -> void:
 	save_data.set_value("scores", "entries", entries)
 	save_data.set_value("progress", "highest_level", highest_level)
+	save_data.set_value("audio", "music_volume", music_volume)
+	save_data.set_value("audio", "sfx_volume", sfx_volume)
 	if save_data.has_section_key("scores", "high_score"):
 		save_data.erase_section_key("scores", "high_score")
 	var temporary_path: String = SAVE_PATH + ".tmp"

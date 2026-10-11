@@ -3,6 +3,9 @@
 ## The scene's 7 px radius and 0.75 s Jump give about 195 ms of theoretical input opportunity at 60 px/s.
 extends Area2D
 
+# Cosmetic transition only; Main has already awarded the dodge and released gameplay ownership.
+signal exploded
+
 enum Phase { ACTIVE, DEPARTING, EXPLODING }
 # Cosmetic clocks begin after gameplay resolution and never delay Main's next encounter.
 const DEPARTURE_DURATION: float = 0.50
@@ -75,6 +78,7 @@ func _physics_process(delta: float) -> void:
 		phase = Phase.EXPLODING
 		effect_elapsed = 0.0
 		visuals.hide()
+		exploded.emit()
 	if phase == Phase.EXPLODING:
 		effect_elapsed = minf(effect_elapsed + remaining, EXPLOSION_DURATION)
 		queue_redraw()

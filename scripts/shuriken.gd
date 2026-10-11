@@ -2,6 +2,9 @@
 ## After passage, local cosmetic states cannot damage, score or delay the next encounter.
 extends Area2D
 
+# Floor contact is cosmetic feedback, never another dodge or damage event.
+signal landed
+
 enum Phase { ACTIVE, DEPARTING, FALLING, SETTLED }
 const PROJECTILE_SPEED_MULTIPLIER: float = 1.25
 const FLIGHT_HEIGHT: float = 270.0
@@ -91,6 +94,7 @@ func _physics_process(delta: float) -> void:
 				phase = Phase.SETTLED
 				position.y = FLOOR_HEIGHT - body_shape.shape.radius
 				visuals.rotation = 0.0
+				landed.emit()
 			Phase.SETTLED:
 				set_physics_process(false)
 				queue_free()

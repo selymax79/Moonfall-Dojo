@@ -2,6 +2,8 @@
 ## Main controls tick and hit ordering; the different attack results come entirely from geometry.
 extends Area2D
 
+signal attack_started
+
 # Logical pixels and seconds. Crouch finishes early enough to be low before entering Kick range.
 const ATTACK_DISTANCE: float = 30.0
 const WINDUP_DURATION: float = 0.35
@@ -82,6 +84,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 			Phase.WINDUP:
 				position.x = strike_x
 				phase = Phase.STRIKE
+				attack_started.emit()
 			Phase.STRIKE: phase = Phase.RECOVERY
 			Phase.RECOVERY: phase = Phase.WAIT
 			Phase.WAIT: phase = Phase.WINDUP

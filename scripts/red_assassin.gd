@@ -2,6 +2,8 @@
 ## Main advances this actor and resolves Player's attack first; this script has no independent tick.
 extends Area2D
 
+signal attack_started
+
 # Logical pixels and seconds. The final spacing lets Kick reach the body while Punch falls short.
 const ATTACK_DISTANCE: float = 38.0
 const WINDUP_DURATION: float = 0.35
@@ -74,6 +76,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 			Phase.WINDUP:
 				position.x = strike_x
 				phase = Phase.STRIKE
+				attack_started.emit()
 			Phase.STRIKE: phase = Phase.RECOVERY
 			Phase.RECOVERY: phase = Phase.WAIT
 			Phase.WAIT: phase = Phase.WINDUP
