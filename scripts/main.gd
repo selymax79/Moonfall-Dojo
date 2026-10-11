@@ -2,10 +2,15 @@
 ## Main owns gameplay; resolved hazards run their harmless cosmetic aftermath independently.
 extends Node2D
 
-# RUN includes the existing death animation/Game Over flow; pause remains a SceneTree concern.
-enum GameState { TITLE, CONTROLS, RUN }
+# RUN includes death and non-qualifying Game Over; pause remains a SceneTree concern.
+enum GameState { TITLE, CONTROLS, OPTIONS, HIGH_SCORES, INITIALS_ENTRY, RUN }
 var game_state: GameState = GameState.TITLE
 var menu_selection: int = 0
+var selected_start_level: int = 1
+var initials: String = ""
+# Shared across fresh Main instances so saves load once and a failed write does not lose session data.
+var records
+var result_checked: bool = false
 # Set before entering the tree by the shared start/restart path. Application startup keeps Title.
 var start_in_run: bool = false
 var run_change_pending: bool = false
@@ -28,12 +33,12 @@ const RESPONSE_DURATIONS = [0.40, 0.30, 0.75, 0.60]
 const PLAYER_ACTION_DURATIONS = [0.0, 0.30, 0.40, 0.60, 0.75]
 const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
-const HIGH_SCORE_PATH: String = "user://high_score.cfg"
-var high_score: int = 0
+var high_score: int:
+	get: return records.get_high_score() if records != null else 0
 var score: int = 0
 var kills: int = 0
 var dodges: int = 0
-# Supply before _ready() for a future higher-level start; progression stays relative to this run.
+# Supplied before _ready() by Start/Restart; progression stays relative to the chosen run.
 var run_start_level: int = 1
 # Run-local testing offset: changes difficulty/multiplier without inventing handled threats.
 var dev_level_boost: int = 0
@@ -59,9 +64,10 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var run_stats: Control = $HUD/RunStats
 @onready var title_overlay: Control = $HUD/TitleOverlay
 @onready var title_high_score: Label = $HUD/TitleOverlay/HighScoreLabel
-@onready var start_game_label: Label = $HUD/TitleOverlay/MenuContainer/StartGameLabel
-@onready var controls_label: Label = $HUD/TitleOverlay/MenuContainer/ControlsLabel
 @onready var controls_overlay: Control = $HUD/ControlsOverlay
+@onready var options_overlay: Control = $HUD/OptionsOverlay
+@onready var high_scores_overlay: Control = $HUD/HighScoresOverlay
+@onready var initials_overlay: Control = $HUD/InitialsOverlay
 
 
 ## Randomise before entering the tree so tests can override the seed before the first spawn.
@@ -71,8 +77,12 @@ func _init() -> void:
 
 ## Startup reads persistence but makes no gameplay RNG draws until a run is explicitly started.
 func _ready() -> void:
+	if records == null:
+		records = preload("res://scripts/run_records.gd").new()
+		records.load_records()
+	selected_start_level = clampi(selected_start_level, 1, records.highest_level)
+	run_start_level = clampi(run_start_level, 1, records.highest_level)
 	recalculate_level()
-	load_high_score()
 	update_hud()
 	if start_in_run:
 		game_state = GameState.RUN
@@ -89,46 +99,85 @@ func _ready() -> void:
 func update_menu() -> void:
 	title_overlay.visible = game_state == GameState.TITLE
 	controls_overlay.visible = game_state == GameState.CONTROLS
-	run_stats.visible = game_state == GameState.RUN
+	options_overlay.visible = game_state == GameState.OPTIONS
+	high_scores_overlay.visible = game_state == GameState.HIGH_SCORES
+	initials_overlay.visible = game_state == GameState.INITIALS_ENTRY
+	run_stats.visible = game_state == GameState.RUN or game_state == GameState.INITIALS_ENTRY
 	title_high_score.text = "High Score %06d" % high_score
-	start_game_label.text = "> START GAME <" if menu_selection == 0 else "START GAME"
-	controls_label.text = "> CONTROLS <" if menu_selection == 1 else "CONTROLS"
+	var choices: Array[String] = ["START GAME", "START LEVEL  %d" % selected_start_level, "HIGH SCORES", "CONTROLS", "OPTIONS"]
+	for index in range(choices.size()):
+		$HUD/TitleOverlay/MenuContainer.get_child(index).text = "> %s <" % choices[index] if menu_selection == index else choices[index]
+	$HUD/TitleOverlay/UnlockHint.text = "Highest unlocked: %d  |  Left / Right adjusts Start Level" % records.highest_level
+	var ranks := ""
+	var names := ""
+	var scores := ""
+	for index in range(records.TABLE_SIZE):
+		var entry: Dictionary = records.entries[index] if index < records.entries.size() else {"initials": "---", "score": 0}
+		ranks += "%2d.\n" % (index + 1)
+		names += "%s\n" % entry.initials
+		scores += "%06d\n" % entry.score
+	$HUD/HighScoresOverlay/Ranks.text = ranks.trim_suffix("\n")
+	$HUD/HighScoresOverlay/Initials.text = names.trim_suffix("\n")
+	$HUD/HighScoresOverlay/Scores.text = scores.trim_suffix("\n")
+	$HUD/InitialsOverlay/InitialsLabel.text = " ".join((initials + "___").substr(0, 3).split(""))
 
 
-## Two explicit choices; menu keys never reach the disabled Player.
+## Explicit destinations keep navigation separate from gameplay input and RNG.
 func handle_menu_input(event: InputEvent) -> void:
-	if game_state == GameState.CONTROLS:
+	if game_state == GameState.INITIALS_ENTRY:
+		handle_initials_input(event)
+	elif game_state != GameState.TITLE:
 		if event.is_action_pressed("menu_back") or event.is_action_pressed("menu_accept"):
 			game_state = GameState.TITLE
-	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
-		menu_selection = 1 - menu_selection
+	elif event.is_action_pressed("menu_up"):
+		menu_selection = posmod(menu_selection - 1, 5)
+	elif event.is_action_pressed("menu_down"):
+		menu_selection = (menu_selection + 1) % 5
+	elif menu_selection == 1 and event.is_action_pressed("menu_left"):
+		selected_start_level = maxi(1, selected_start_level - 1)
+	elif menu_selection == 1 and event.is_action_pressed("menu_right"):
+		# Check before adding so even an extreme edited integer cannot overflow the selector.
+		if selected_start_level < records.highest_level:
+			selected_start_level += 1
 	elif event.is_action_pressed("menu_accept"):
-		if menu_selection == 0:
-			start_new_run()
-		else:
-			game_state = GameState.CONTROLS
+		match menu_selection:
+			0, 1: start_new_run()
+			2: game_state = GameState.HIGH_SCORES
+			3: game_state = GameState.CONTROLS
+			4: game_state = GameState.OPTIONS
 	update_menu()
 
 
-## Load each fresh scene, including F2 restarts. Missing or invalid data leaves a zero record.
-func load_high_score() -> void:
-	high_score = 0
-	var save_data := ConfigFile.new()
-	if save_data.load(HIGH_SCORE_PATH) != OK:
+## Direct typing is deliberately separate from action bindings (P enters a letter, never pause).
+func handle_initials_input(event: InputEvent) -> void:
+	if event.is_action_pressed("menu_accept") and initials.length() == 3:
+		records.submit_score(initials, score)
+		game_state = GameState.HIGH_SCORES
+		update_hud()
+	elif event is InputEventKey and event.pressed:
+		if event.keycode == KEY_BACKSPACE or event.physical_keycode == KEY_BACKSPACE:
+			initials = initials.left(maxi(0, initials.length() - 1))
+		elif initials.length() < 3 and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
+			# Navigation/function keys have unicode=0; reject them before constructing a character.
+			var code: int = event.unicode
+			if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
+				initials += String.chr(code).to_upper()
+
+
+## Decide once after the death animation. Qualifying runs freeze into an input-only entry screen.
+func show_run_result() -> void:
+	if result_checked:
 		return
-	# Do not coerce strings, floats or booleans into scores from malformed save data.
-	var saved_score: Variant = save_data.get_value("scores", "high_score", 0)
-	if typeof(saved_score) == TYPE_INT and saved_score >= 0:
-		high_score = saved_score
-
-
-## Save a new record immediately; a failed write must not interrupt the current run.
-func save_high_score() -> void:
-	var save_data := ConfigFile.new()
-	save_data.set_value("scores", "high_score", high_score)
-	var error: Error = save_data.save(HIGH_SCORE_PATH)
-	if error != OK:
-		push_warning("Could not save High Score to %s: %s" % [HIGH_SCORE_PATH, error_string(error)])
+	result_checked = true
+	if records.qualifies(score):
+		game_state = GameState.INITIALS_ENTRY
+		for child in get_children():
+			if child is Node2D:
+				child.process_mode = Node.PROCESS_MODE_DISABLED
+				child.hide()
+		update_menu()
+	else:
+		game_over_overlay.show()
 
 
 ## Presentation reads the record and run counters; padding expands naturally beyond six digits.
@@ -157,14 +206,13 @@ func award_successful_threat(threat_type: ThreatType) -> void:
 	var half_units: int = get_multiplier_half_units()
 	@warning_ignore("integer_division")
 	score += (POINTS_PER_THREAT * half_units) / 2
-	if score > high_score:
-		high_score = score
-		save_high_score()
 	if threat_type == ThreatType.BARREL or threat_type == ThreatType.SHURIKEN:
 		dodges += 1
 	else:
 		kills += 1
 	recalculate_level()
+	@warning_ignore("integer_division")
+	records.unlock_level(run_start_level + (kills + dodges) / HANDLED_THREATS_PER_LEVEL)
 	update_hud()
 
 
@@ -218,6 +266,9 @@ func replace_with_run() -> void:
 	var tree := get_tree()
 	var next_run = load(scene_file_path).instantiate()
 	next_run.start_in_run = true
+	next_run.records = records
+	next_run.run_start_level = run_start_level if game_state == GameState.RUN else selected_start_level
+	next_run.selected_start_level = next_run.run_start_level
 	if game_state != GameState.RUN:
 		# Menu dwell/navigation must preserve an injected seed and the exact initial RNG state.
 		next_run.encounter_rng.seed = encounter_rng.seed
@@ -339,7 +390,9 @@ func _physics_process(delta: float) -> void:
 		cancel_pending_spawn()
 		# Use Player's gameplay clock: pausing the fall also delays Game Over and its restart input.
 		if player.death_elapsed >= player.DEATH_DURATION:
-			game_over_overlay.show()
+			show_run_result()
+			if game_state != GameState.RUN:
+				return
 		# Preserve Assassin recovery after death; active hazards freeze and cosmetics remain independent.
 		for record in active_threats:
 			if is_assassin(record.type):

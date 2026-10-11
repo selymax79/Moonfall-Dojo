@@ -25,6 +25,16 @@ window/stretch/scale_mode="fractional"
 
 [input]
 
+menu_left={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194319)]
+}
+
+menu_right={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194321)]
+}
+
 menu_up={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":4194320)]

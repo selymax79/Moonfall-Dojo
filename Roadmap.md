@@ -30,11 +30,14 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | --- | --- |
 | 21 — Player-facing Game Over and Restart | COMPLETE: implementation reviewed and verified. |
 | 22 — Title Screen and Start Game Flow | COMPLETE: implementation reviewed and verified. |
-| 23 — Local Top-10 High Score Table | NEXT: not implemented. |
-| 24–34 | Pending: proceed in the sequence below. |
+| 23 — Local Top-10 High Score Table | COMPLETE: persistence, migration, entry flow and rendering verified. |
+| 24 — Highest Level Unlock + Start Level | COMPLETE: legitimate unlocks, higher starts and restarts verified. |
+| 25 — Controls / Options Shell | COMPLETE: keyboard navigation and input isolation verified. |
+| 26 — Audio Foundation | NEXT: not implemented. |
+| 27–34 | Pending: proceed in the sequence below. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
-Enter restart into a clean Level 1 run with persistent High Score. Verification covered
+Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
 deaths from all four threats on both sides, restart/input isolation, no post-death admissions
 or rewards, cosmetic cleanup after death, P/F2/F4 interactions, scoring and persistence.
 Regression checks passed for all 384 scheduler pair cases, 9,000 scheduled encounters,
@@ -50,6 +53,26 @@ loaded a newly earned record on Title. Game Over, input isolation, pause, F4, 38
 pair cases and 9,000 scheduled encounters passed regression checks. Title selections,
 Controls, first gameplay frame, Game Over, pause and restart were inspected at 640×360.
 Input verification used injected Godot events; physical keyboard playtesting remains unperformed.
+
+Milestones 23–25 provide a local Top 10 with direct three-character initials entry, one-time
+AAA migration of a legacy record, earned-only Level unlocks, a bounded Start Level selector,
+High Scores/Controls/Options destinations and restarts at the run's chosen starting Level.
+ConfigFile persistence checks covered missing/invalid fields, stable ties, trimming, qualification,
+legacy migration and separate-process relaunch. A forced write failure preserved the previous
+file and recovered on a later save; an intentionally corrupt file fell back safely. These negative
+fixtures emitted their expected diagnostics; normal runtime and render checks were clean.
+
+Verification passed 172 feature-flow checks, 621 combat/progression regression checks,
+116,980 pause checks, 318,498 F4 checks and 2,716,418 scheduler assertions, including the
+384-pair matrix and 9,000 encounters. A separate 113,223-check menu determinism run compared
+2 s and 20 s real menu waits with identical 200-encounter traces. F4 never unlocked a start
+Level or wrote records; mixed earned Level 3 / effective Level 20 unlocked only Level 3.
+Level-10 starts reached Level 13/x1.5 and Level 16/x2.0 at the unchanged scoring boundaries.
+F2 and non-qualifying Enter restarts retained the chosen higher starting Level and cleared pause.
+Separate-process startup loaded the confirmed leaderboard and unlock while selecting Level 1.
+All title selections, selector maximum, full/partial tables, initials entry, Controls, Options,
+Level-1/Level-10 runs and both Game Over outcomes were rendered and inspected at 640×360.
+Tests used isolated user data and injected input; no physical keyboard playtesting was performed.
 
 This status is a checkpoint, not a substitute for inspecting the current checkout. Keep it
 and CURRENT NEXT TARGET aligned after verified completion. See [DESIGN_NOTES.md](DESIGN_NOTES.md)
@@ -257,7 +280,7 @@ Expand persistence from one High Score value to a local Top-10 table.
 
 Required:
 
-- ten entries
+- up to ten real entries, with empty UI placeholders
 - score
 - three-character initials
 - sorted descending
@@ -708,7 +731,7 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 23 — Local Top-10 High Score Table — NEXT**
+**Milestone 26 — Audio Foundation — NEXT**
 
 Continue sequentially from there.
 

@@ -1,0 +1,91 @@
+## Local arcade records. Main shares this object across scene replacements; no autoload is needed.
+extends RefCounted
+
+const SAVE_PATH: String = "user://high_score.cfg"
+const TABLE_SIZE: int = 10
+var entries: Array[Dictionary] = []
+var highest_level: int = 1
+var save_data := ConfigFile.new()
+
+
+func load_records() -> void:
+	entries.clear()
+	highest_level = 1
+	save_data = ConfigFile.new()
+	if save_data.load(SAVE_PATH) != OK:
+		save_data = ConfigFile.new()
+		return
+	var saved_entries: Variant = save_data.get_value("scores", "entries", [])
+	if saved_entries is Array:
+		for entry in saved_entries:
+			if entry is Dictionary and valid_score(entry.get("score")):
+				insert_sorted({"initials": sanitise_initials(entry.get("initials")), "score": entry.score})
+	var saved_level: Variant = save_data.get_value("progress", "highest_level", 1)
+	if typeof(saved_level) == TYPE_INT and saved_level >= 1:
+		highest_level = saved_level
+	# An explicit entries key, even an empty table, is authoritative. Never re-import it each launch.
+	if not save_data.has_section_key("scores", "entries"):
+		var legacy: Variant = save_data.get_value("scores", "high_score", 0)
+		if valid_score(legacy) and legacy > 0:
+			insert_sorted({"initials": "AAA", "score": legacy})
+			save_records()
+
+
+func valid_score(value: Variant) -> bool:
+	return typeof(value) == TYPE_INT and value >= 0
+
+
+func sanitise_initials(value: Variant) -> String:
+	var cleaned := ""
+	if value is String:
+		for character in value.to_upper():
+			if (character >= "A" and character <= "Z") or (character >= "0" and character <= "9"):
+				cleaned += character
+	return (cleaned + "AAA").substr(0, 3)
+
+
+func get_high_score() -> int:
+	return 0 if entries.is_empty() else int(entries[0].score)
+
+
+func qualifies(final_score: int) -> bool:
+	return final_score >= 0 and (entries.size() < TABLE_SIZE or final_score > int(entries.back().score))
+
+
+## Strictly greater insertion keeps earlier equal scores first, including while repairing loaded data.
+func insert_sorted(entry: Dictionary) -> void:
+	var index: int = 0
+	while index < entries.size() and int(entries[index].score) >= int(entry.score):
+		index += 1
+	entries.insert(index, entry)
+	if entries.size() > TABLE_SIZE:
+		entries.resize(TABLE_SIZE)
+
+
+func submit_score(initials: String, final_score: int) -> void:
+	if not qualifies(final_score):
+		return
+	insert_sorted({"initials": sanitise_initials(initials), "score": final_score})
+	save_records()
+
+
+## Call only with earned progression, never the development-boosted effective Level.
+func unlock_level(earned_level: int) -> void:
+	if earned_level > highest_level:
+		highest_level = earned_level
+		save_records()
+
+
+## Preserve unrelated sections for future settings. Replace only after a complete write succeeds.
+## Failed writes leave the previous file intact and retain current records in memory for this session.
+func save_records() -> void:
+	save_data.set_value("scores", "entries", entries)
+	save_data.set_value("progress", "highest_level", highest_level)
+	if save_data.has_section_key("scores", "high_score"):
+		save_data.erase_section_key("scores", "high_score")
+	var temporary_path: String = SAVE_PATH + ".tmp"
+	var error: Error = save_data.save(temporary_path)
+	if error == OK:
+		error = DirAccess.rename_absolute(temporary_path, SAVE_PATH)
+	if error != OK:
+		push_warning("Could not save run records to %s: %s" % [SAVE_PATH, error_string(error)])

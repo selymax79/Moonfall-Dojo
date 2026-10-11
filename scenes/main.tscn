@@ -73,9 +73,9 @@ mouse_filter = 2
 
 [node name="GameTitle" type="Label" parent="HUD/TitleOverlay"]
 layout_mode = 0
-offset_top = 65.0
+offset_top = 27.0
 offset_right = 640.0
-offset_bottom = 107.0
+offset_bottom = 69.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 32
@@ -84,9 +84,9 @@ horizontal_alignment = 1
 
 [node name="HighScoreLabel" type="Label" parent="HUD/TitleOverlay"]
 layout_mode = 0
-offset_top = 116.0
+offset_top = 78.0
 offset_right = 640.0
-offset_bottom = 144.0
+offset_bottom = 106.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_font_sizes/font_size = 16
@@ -95,12 +95,12 @@ horizontal_alignment = 1
 
 [node name="MenuContainer" type="VBoxContainer" parent="HUD/TitleOverlay"]
 layout_mode = 0
-offset_left = 160.0
-offset_top = 180.0
-offset_right = 480.0
-offset_bottom = 248.0
+offset_left = 80.0
+offset_top = 125.0
+offset_right = 560.0
+offset_bottom = 282.0
 mouse_filter = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 5
 
 [node name="StartGameLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
 layout_mode = 2
@@ -108,6 +108,22 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 20
 text = "> START GAME <"
+horizontal_alignment = 1
+
+[node name="StartLevelLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 20
+text = "START LEVEL  1"
+horizontal_alignment = 1
+
+[node name="HighScoresLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 20
+text = "HIGH SCORES"
 horizontal_alignment = 1
 
 [node name="ControlsLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
@@ -118,11 +134,19 @@ theme_override_font_sizes/font_size = 20
 text = "CONTROLS"
 horizontal_alignment = 1
 
+[node name="OptionsLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 20
+text = "OPTIONS"
+horizontal_alignment = 1
+
 [node name="NavigationHint" type="Label" parent="HUD/TitleOverlay"]
 layout_mode = 0
-offset_top = 288.0
+offset_top = 300.0
 offset_right = 640.0
-offset_bottom = 315.0
+offset_bottom = 322.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_font_sizes/font_size = 14
@@ -162,7 +186,8 @@ text = "Left / Right = Turn
 Up = Jump     Down = Duck
 Z = Punch     X = Kick
 P = Pause / Resume
-Enter = Select / Restart at Game Over"
+Enter = Select / Confirm / Restart
+Esc = Back where available"
 horizontal_alignment = 1
 theme_override_constants/line_spacing = 10
 
@@ -269,4 +294,190 @@ mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_font_sizes/font_size = 14
 text = "P to resume"
+horizontal_alignment = 1
+
+[node name="UnlockHint" type="Label" parent="HUD/TitleOverlay"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 327.0
+offset_right = 640.0
+offset_bottom = 347.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 13
+text = "Highest unlocked: 1  |  Left / Right adjusts Start Level"
+horizontal_alignment = 1
+
+[node name="OptionsOverlay" type="Control" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Heading" type="Label" parent="HUD/OptionsOverlay"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 35.0
+offset_right = 640.0
+offset_bottom = 77.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 28
+text = "OPTIONS"
+horizontal_alignment = 1
+
+[node name="Explanation" type="Label" parent="HUD/OptionsOverlay"]
+layout_mode = 0
+offset_left = 60.0
+offset_top = 147.0
+offset_right = 580.0
+offset_bottom = 217.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 18
+text = "Audio options will become available\nafter audio is implemented."
+horizontal_alignment = 1
+
+[node name="ReturnHint" type="Label" parent="HUD/OptionsOverlay"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 306.0
+offset_right = 640.0
+offset_bottom = 331.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "Esc or Enter to return"
+horizontal_alignment = 1
+
+[node name="HighScoresOverlay" type="Control" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Heading" type="Label" parent="HUD/HighScoresOverlay"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 23.0
+offset_right = 640.0
+offset_bottom = 65.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 28
+text = "HIGH SCORES"
+horizontal_alignment = 1
+
+[node name="Ranks" type="Label" parent="HUD/HighScoresOverlay"]
+theme_override_constants/line_spacing = -2
+layout_mode = 0
+offset_left = 190.0
+offset_top = 77.0
+offset_right = 240.0
+offset_bottom = 297.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 16
+text = ""
+horizontal_alignment = 2
+
+[node name="Initials" type="Label" parent="HUD/HighScoresOverlay"]
+theme_override_constants/line_spacing = -2
+layout_mode = 0
+offset_left = 258.0
+offset_top = 77.0
+offset_right = 326.0
+offset_bottom = 297.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 16
+text = ""
+horizontal_alignment = 1
+
+[node name="Scores" type="Label" parent="HUD/HighScoresOverlay"]
+theme_override_constants/line_spacing = -2
+layout_mode = 0
+offset_left = 349.0
+offset_top = 77.0
+offset_right = 499.0
+offset_bottom = 297.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 16
+text = ""
+horizontal_alignment = 0
+
+[node name="ReturnHint" type="Label" parent="HUD/HighScoresOverlay"]
+layout_mode = 0
+offset_left = 0.0
+offset_top = 316.0
+offset_right = 640.0
+offset_bottom = 341.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "Esc or Enter to return to Title"
+horizontal_alignment = 1
+
+[node name="InitialsOverlay" type="Control" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Heading" type="Label" parent="HUD/InitialsOverlay"]
+layout_mode = 0
+offset_left = 160.0
+offset_top = 141.0
+offset_right = 480.0
+offset_bottom = 181.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 28
+text = "GAME OVER"
+horizontal_alignment = 1
+
+[node name="Prompt" type="Label" parent="HUD/InitialsOverlay"]
+layout_mode = 0
+offset_left = 140.0
+offset_top = 191.0
+offset_right = 500.0
+offset_bottom = 221.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 17
+text = "NEW HIGH SCORE — ENTER INITIALS"
+horizontal_alignment = 1
+
+[node name="InitialsLabel" type="Label" parent="HUD/InitialsOverlay"]
+layout_mode = 0
+offset_left = 160.0
+offset_top = 230.0
+offset_right = 480.0
+offset_bottom = 273.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 30
+text = "_ _ _"
+horizontal_alignment = 1
+
+[node name="EntryHint" type="Label" parent="HUD/InitialsOverlay"]
+layout_mode = 0
+offset_left = 80.0
+offset_top = 291.0
+offset_right = 560.0
+offset_bottom = 341.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "Type A–Z / 0–9   •   Backspace to erase\nEnter to confirm three characters"
 horizontal_alignment = 1
