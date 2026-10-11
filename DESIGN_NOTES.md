@@ -9,6 +9,30 @@ Single-screen endless arcade reaction/combat game. Player stays at x=320, feet a
 threats enter at x=80 or x=560. One spatial hit kills Player. Actions are committed;
 Score, Level and a persistent single High Score track the run. There is no victory condition.
 
+## Startup / Title / Controls
+
+Application startup opens Title, showing MOONFALL DOJO, the persistent High Score,
+START GAME and CONTROLS. Up/Down switches the explicit selection; Enter activates it.
+Controls lists Left/Right = Turn, Up = Jump, Down = Duck, Z = Punch, X = Kick,
+P = Pause/Resume and Enter = Select/Restart at Game Over. Esc or Enter returns to Title
+with Controls still selected. Development keys are not presented as normal controls.
+
+Main uses three states: `TITLE`, `CONTROLS` and `RUN`. RUN retains Player's existing death
+flag and Game Over overlay; SceneTree pause remains separate. Menus hide and disable Player,
+hide run statistics, and gate the simulation before gameplay clocks, spawning or RNG draws.
+No threats or fairness reservations exist before Start. P/F2/F4 are ignored in menus.
+Gameplay keys cannot alter hidden Player state or buffer actions into the next run; held-key
+echoes are ignored. Menu navigation and dwell time consume no gameplay RNG.
+
+Start Game, Game Over Enter and in-run F2 share `start_new_run()`: a deferred replacement
+of Main with a fresh instance configured to enter RUN, bypassing Title. This resets all
+run state without maintaining a separate field-by-field reset list. It begins unpaused at
+Level 1, x1.0, zero Score/Kills/Dodges/development boost, with an idle living Player, the
+normal first threat and a newly selected pending threat. High Score reloads from the same save.
+The Title-to-run handover preserves the gameplay RNG seed/state, so identical seeds and
+gameplay inputs produce identical sequences regardless of menu time. Restarts retain the
+previous fresh-RNG behaviour. There is no in-run return-to-title control yet.
+
 ## Player
 
 Implemented in [player.gd](scripts/player.gd) and [player.tscn](scenes/player.tscn).
@@ -39,7 +63,7 @@ Barrel/Shuriken cosmetics may finish and remove themselves without further rewar
 Enter (InputMap `restart_run`) accepts a fresh, non-echo press only while Game Over is
 visible and the game is unpaused. Enter during play, actions, the death animation or pause
 is discarded, not buffered. Holding it before death cannot trigger a later restart.
-Restart reloads the scene into an unpaused Level 1 run: Score/Kills/Dodges/development boost
+Restart replaces Main with an unpaused Level 1 run: Score/Kills/Dodges/development boost
 reset to zero, multiplier to x1.0, Player and scheduler reset, and old threat nodes are removed.
 The fresh scheduler starts its normal first encounter and selects a new pending threat.
 The saved High Score survives both Enter restart and F2; new records still save on scoring.
@@ -52,7 +76,8 @@ on the dead or paused HUD without awarding points or restarting spawning.
 
 ## Pause
 
-P toggles SceneTree pause on a fresh, non-echo press, including during death. A centred
+During a run, P toggles SceneTree pause on a fresh, non-echo press, including during death.
+Title and Controls ignore P. A centred
 PAUSED overlay and P-to-resume hint appear over the HUD. Player actions/turning/death,
 all threat movement/attacks/cosmetics, and scheduler gameplay time freeze without wall-clock
 catch-up. Gameplay presses during pause are discarded, not queued for resume.
@@ -65,12 +90,13 @@ use Pausable processing rather than inherit Main's control exception; no audio e
 ## Development Controls
 
 - **F2:** restart the current run unpaused; reset counters, development boost and scheduler;
-  retain High Score. Explicitly clears SceneTree pause before reloading.
+  retain High Score. Explicitly clears SceneTree pause before replacing Main. Ignored in menus.
 - **F4:** advance effective Level by exactly one per fresh press using a run-local `dev_level_boost`.
   Level and run-relative multiplier refresh immediately, without changing Score, Kills, Dodges,
   handled count or High Score. F4 itself never saves High Score; later scoring can update it normally.
   Works during actions, approaches, empty gaps, pause and death. It cannot restart spawning after death.
   While paused, Level/Multiplier update behind the overlay but gameplay remains frozen.
+  Ignored on Title and Controls, so no development boost accumulates before Start.
 
 F4 updates future difficulty and overlap eligibility. A shorter gap band shortens the remaining
 pacing wait while preserving elapsed time. Pending type/side, active speeds and response reservations
@@ -136,7 +162,8 @@ freeze, surviving Assassins finish recovery, and resolved effects finish indepen
 Main owns a small `active_threats` array of unresolved records plus one selected pending
 type/side. Type is uniform over Red/Blue/Barrel/Shuriken; side is independent 50/50.
 RNG draw order is always **type, then side**, with no timing draw or anti-streak logic.
-The first choice is drawn on readiness; each spawn immediately draws the next pending choice.
+The first choice is drawn when a fresh RUN instance enters the tree, never on Title/Controls;
+each spawn immediately draws the next pending choice.
 Unsafe choices wait unchanged: neither capacity nor fairness checks consume RNG draws.
 Seed before readiness for reproducibility (same seed and Player inputs give the same run).
 
@@ -211,6 +238,6 @@ All artwork is currently simple placeholder geometry; there is no drawn floor/ba
 
 ## Not Yet Implemented
 
-Full background art; polished sprites; audio/music; title/options/pause menus; remappable
+Full background art; polished sprites; audio/music; options/pause menus; remappable
 controls; controller bindings; selectable/unlocked starting levels; Top 10 initials table;
 advanced authored encounter patterns.

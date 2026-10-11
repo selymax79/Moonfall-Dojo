@@ -2,6 +2,14 @@
 ## Main owns gameplay; resolved hazards run their harmless cosmetic aftermath independently.
 extends Node2D
 
+# RUN includes the existing death animation/Game Over flow; pause remains a SceneTree concern.
+enum GameState { TITLE, CONTROLS, RUN }
+var game_state: GameState = GameState.TITLE
+var menu_selection: int = 0
+# Set before entering the tree by the shared start/restart path. Application startup keeps Title.
+var start_in_run: bool = false
+var run_change_pending: bool = false
+
 enum ThreatType { RED, BLUE, BARREL, SHURIKEN }
 const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn"), preload("res://scenes/shuriken.tscn")]
 const THREAT_START_POSITION := Vector2(560, 300)
@@ -48,6 +56,12 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var multiplier_label: Label = $HUD/RunStats/MultiplierLabel
 @onready var game_over_overlay: Control = $HUD/GameOverOverlay
 @onready var pause_overlay: Control = $HUD/PauseOverlay
+@onready var run_stats: Control = $HUD/RunStats
+@onready var title_overlay: Control = $HUD/TitleOverlay
+@onready var title_high_score: Label = $HUD/TitleOverlay/HighScoreLabel
+@onready var start_game_label: Label = $HUD/TitleOverlay/MenuContainer/StartGameLabel
+@onready var controls_label: Label = $HUD/TitleOverlay/MenuContainer/ControlsLabel
+@onready var controls_overlay: Control = $HUD/ControlsOverlay
 
 
 ## Randomise before entering the tree so tests can override the seed before the first spawn.
@@ -55,16 +69,48 @@ func _init() -> void:
 	encounter_rng.randomize()
 
 
-## A fresh scene starts a fresh encounter without resetting any existing Player state.
+## Startup reads persistence but makes no gameplay RNG draws until a run is explicitly started.
 func _ready() -> void:
 	recalculate_level()
 	load_high_score()
 	update_hud()
-	select_pending_threat()
-	try_spawn_pending_threat()
+	if start_in_run:
+		game_state = GameState.RUN
+		select_pending_threat()
+		try_spawn_pending_threat()
+	else:
+		# Hidden Player must not receive menu arrow keys or accumulate committed actions.
+		player.process_mode = Node.PROCESS_MODE_DISABLED
+		player.hide()
+	update_menu()
 
 
-## Load each fresh scene, including F2 reloads. Missing or invalid data leaves a zero record.
+## Visibility and selection have no effect on gameplay clocks or RNG.
+func update_menu() -> void:
+	title_overlay.visible = game_state == GameState.TITLE
+	controls_overlay.visible = game_state == GameState.CONTROLS
+	run_stats.visible = game_state == GameState.RUN
+	title_high_score.text = "High Score %06d" % high_score
+	start_game_label.text = "> START GAME <" if menu_selection == 0 else "START GAME"
+	controls_label.text = "> CONTROLS <" if menu_selection == 1 else "CONTROLS"
+
+
+## Two explicit choices; menu keys never reach the disabled Player.
+func handle_menu_input(event: InputEvent) -> void:
+	if game_state == GameState.CONTROLS:
+		if event.is_action_pressed("menu_back") or event.is_action_pressed("menu_accept"):
+			game_state = GameState.TITLE
+	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
+		menu_selection = 1 - menu_selection
+	elif event.is_action_pressed("menu_accept"):
+		if menu_selection == 0:
+			start_new_run()
+		else:
+			game_state = GameState.CONTROLS
+	update_menu()
+
+
+## Load each fresh scene, including F2 restarts. Missing or invalid data leaves a zero record.
 func load_high_score() -> void:
 	high_score = 0
 	var save_data := ConfigFile.new()
@@ -134,15 +180,19 @@ func recalculate_level() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_echo():
 		return
+	if game_state != GameState.RUN:
+		get_viewport().set_input_as_handled()
+		handle_menu_input(event)
+		return
 	if event.is_action_pressed("pause_game"):
 		get_viewport().set_input_as_handled()
 		set_game_paused(not get_tree().paused)
 	elif event.is_action_pressed("dev_restart"):
 		get_viewport().set_input_as_handled()
-		restart_run()
+		start_new_run()
 	elif event.is_action_pressed("restart_run") and game_over_overlay.visible and not get_tree().paused:
 		get_viewport().set_input_as_handled()
-		restart_run()
+		start_new_run()
 	elif event.is_action_pressed("dev_level_up"):
 		get_viewport().set_input_as_handled()
 		var previous_gap: float = get_spawn_gap()
@@ -155,11 +205,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		update_hud()
 
 
-## Both restart controls create a clean run; the persistent High Score is loaded by the new scene.
-func restart_run() -> void:
-	# SceneTree outlives this scene, so pause must not survive a restart.
+## Start Game, Enter restart and F2 all replace the scene, avoiding a second list of reset rules.
+func start_new_run() -> void:
+	if run_change_pending:
+		return
+	run_change_pending = true
+	# Replace outside input dispatch; multiple presses in one frame cannot create duplicate runs.
+	replace_with_run.call_deferred()
+
+
+func replace_with_run() -> void:
+	var tree := get_tree()
+	var next_run = load(scene_file_path).instantiate()
+	next_run.start_in_run = true
+	if game_state != GameState.RUN:
+		# Menu dwell/navigation must preserve an injected seed and the exact initial RNG state.
+		next_run.encounter_rng.seed = encounter_rng.seed
+		next_run.encounter_rng.state = encounter_rng.state
+	# Configure before _ready(): ordinary scene reload would return to Title instead of a run.
 	set_game_paused(false)
-	get_tree().reload_current_scene()
+	tree.root.remove_child(self)
+	tree.root.add_child(next_run)
+	tree.current_scene = next_run
+	queue_free()
 
 
 ## SceneTree freezes pausable actors (including cosmetic aftermath); HUD remains responsive.
@@ -212,7 +280,7 @@ func get_lethal_lead(threat_type: int, speed: float) -> float:
 ## It contains a valid intended response and its full recovery, not a promise that every press in it wins.
 ## A new reservation must follow every existing recovery, actual Player availability, turn and margin.
 func try_spawn_pending_threat() -> void:
-	if player.is_dead or pending_type < 0 or encounter_time < next_spawn_at:
+	if game_state != GameState.RUN or player.is_dead or pending_type < 0 or encounter_time < next_spawn_at:
 		return
 	if active_threats.size() >= get_max_unresolved():
 		return
@@ -262,8 +330,8 @@ func cancel_pending_spawn() -> void:
 ## All actors move first, then Player attacks, then lethal checks, then surviving hazard rewards.
 ## Separate passes preserve Player-first Assassin priority regardless of the array's encounter order.
 func _physics_process(delta: float) -> void:
-	# Only Main needs this guard: it stays responsive for P/F2/F4 while SceneTree pauses actors.
-	if get_tree().paused:
+	# Main handles menus/P/F2/F4; simulation exists only in an unpaused run with no restart pending.
+	if game_state != GameState.RUN or run_change_pending or get_tree().paused:
 		return
 	encounter_time += delta
 	player.advance_tick(delta)

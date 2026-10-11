@@ -63,6 +63,120 @@ theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_font_sizes/font_size = 16
 text = "Multiplier x1.0"
 
+[node name="TitleOverlay" type="Control" parent="HUD"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="GameTitle" type="Label" parent="HUD/TitleOverlay"]
+layout_mode = 0
+offset_top = 65.0
+offset_right = 640.0
+offset_bottom = 107.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 32
+text = "MOONFALL DOJO"
+horizontal_alignment = 1
+
+[node name="HighScoreLabel" type="Label" parent="HUD/TitleOverlay"]
+layout_mode = 0
+offset_top = 116.0
+offset_right = 640.0
+offset_bottom = 144.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 16
+text = "High Score 000000"
+horizontal_alignment = 1
+
+[node name="MenuContainer" type="VBoxContainer" parent="HUD/TitleOverlay"]
+layout_mode = 0
+offset_left = 160.0
+offset_top = 180.0
+offset_right = 480.0
+offset_bottom = 248.0
+mouse_filter = 2
+theme_override_constants/separation = 12
+
+[node name="StartGameLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 20
+text = "> START GAME <"
+horizontal_alignment = 1
+
+[node name="ControlsLabel" type="Label" parent="HUD/TitleOverlay/MenuContainer"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 20
+text = "CONTROLS"
+horizontal_alignment = 1
+
+[node name="NavigationHint" type="Label" parent="HUD/TitleOverlay"]
+layout_mode = 0
+offset_top = 288.0
+offset_right = 640.0
+offset_bottom = 315.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Up / Down to choose   •   Enter to select"
+horizontal_alignment = 1
+
+[node name="ControlsOverlay" type="Control" parent="HUD"]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="ControlsTitle" type="Label" parent="HUD/ControlsOverlay"]
+layout_mode = 0
+offset_top = 35.0
+offset_right = 640.0
+offset_bottom = 77.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 28
+text = "CONTROLS"
+horizontal_alignment = 1
+
+[node name="ControlList" type="Label" parent="HUD/ControlsOverlay"]
+layout_mode = 0
+offset_left = 130.0
+offset_top = 94.0
+offset_right = 510.0
+offset_bottom = 263.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_font_sizes/font_size = 17
+text = "Left / Right = Turn
+Up = Jump     Down = Duck
+Z = Punch     X = Kick
+P = Pause / Resume
+Enter = Select / Restart at Game Over"
+horizontal_alignment = 1
+theme_override_constants/line_spacing = 10
+
+[node name="ReturnHint" type="Label" parent="HUD/ControlsOverlay"]
+layout_mode = 0
+offset_top = 288.0
+offset_right = 640.0
+offset_bottom = 315.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "Esc or Enter to return"
+horizontal_alignment = 1
+
 [node name="GameOverOverlay" type="Control" parent="HUD"]
 visible = false
 anchors_preset = 15

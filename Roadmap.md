@@ -29,8 +29,9 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | Milestone | Status |
 | --- | --- |
 | 21 — Player-facing Game Over and Restart | COMPLETE: implementation reviewed and verified. |
-| 22 — Title Screen and Start Game Flow | NEXT: not implemented. |
-| 23–34 | Pending: proceed in the sequence below. |
+| 22 — Title Screen and Start Game Flow | COMPLETE: implementation reviewed and verified. |
+| 23 — Local Top-10 High Score Table | NEXT: not implemented. |
+| 24–34 | Pending: proceed in the sequence below. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean Level 1 run with persistent High Score. Verification covered
@@ -40,6 +41,15 @@ Regression checks passed for all 384 scheduler pair cases, 9,000 scheduled encou
 seeded determinism, pause and development progression. Fresh 640×360 renders were inspected.
 Keyboard checks used injected Godot events; physical keyboard playtesting was not performed.
 Completion describes verified functionality in the checkout, not whether it has been committed.
+
+Milestone 22 opens on Title with persistent High Score, keyboard Start Game and a Controls
+view. Menus leave Player, scheduler clocks and gameplay RNG idle; Start/Enter/F2 share a
+clean run-creation path. Verification compared real 2 s and 20 s menu dwell plus navigation:
+the same seed produced identical 200-encounter gameplay traces. Separate-process relaunch
+loaded a newly earned record on Title. Game Over, input isolation, pause, F4, 384 scheduler
+pair cases and 9,000 scheduled encounters passed regression checks. Title selections,
+Controls, first gameplay frame, Game Over, pause and restart were inspected at 640×360.
+Input verification used injected Godot events; physical keyboard playtesting remains unperformed.
 
 This status is a checkpoint, not a substitute for inspecting the current checkout. Keep it
 and CURRENT NEXT TARGET aligned after verified completion. See [DESIGN_NOTES.md](DESIGN_NOTES.md)
@@ -698,7 +708,7 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 22 — Title Screen and Start Game Flow — NEXT**
+**Milestone 23 — Local Top-10 High Score Table — NEXT**
 
 Continue sequentially from there.
 

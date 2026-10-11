@@ -25,6 +25,26 @@ window/stretch/scale_mode="fractional"
 
 [input]
 
+menu_up={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194320)]
+}
+
+menu_down={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194322)]
+}
+
+menu_accept={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194309)]
+}
+
+menu_back={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"physical_keycode":4194305)]
+}
+
 restart_run={
 "deadzone": 0.5,
 "events": [Object(InputEventKey,"physical_keycode":4194309)]
