@@ -37,8 +37,10 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 27 — Environment Art Pass | COMPLETE: automated verification passed and environment/HUD presentation manually accepted by the user. |
 | 28 — Character and Threat Art Pass | COMPLETE for functional development following user review; required pre-release character-art polish remains below. |
 | 29 — Effects and Game Feel | COMPLETE for functional development following user review; preserve current timing and gameplay alignment. |
-| 30 — Difficulty Shaping | NEXT / NOT STARTED. |
-| 31–34 | Future. |
+| 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: late speed/gap tiers verified; user playtesting remains. |
+| 31–33 | Future: Curated Encounter Patterns, Controller Support, Control Remapping. |
+| 34 — Web / Mobile Version | Future: browser exports and touch support; not native mobile apps. |
+| 35 — Final Polish | Future: includes required character anatomy/combat-pose art debt. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -124,12 +126,27 @@ the requested combat poses, both facings, collapse stages, hazards, background f
 and a real Level-10 two-threat admission. These checks used automated/injected inputs rather
 than physical keyboard playtesting. Following separate manual visual review, the user accepted
 Milestones 28 and 29 as COMPLETE for functional development, with the art debt below explicitly
-retained. Milestone 30 is NEXT and has not begun.
+retained. Milestone 30 tuning is implemented and awaiting manual acceptance as described below.
+
+Milestone 30 preserves Levels 1–14 and introduces base speeds 105 at Level 15 and 110 at Level 20,
+with minimum gaps 0.20 / 0.10 / 0.00 s at Levels 15 / 20 / 30. The two-threat cap, full response
+reservations, turn allowance, 100 ms safety margin and independent type/side RNG remain unchanged.
+Verification passed 384 existing and 320 additional late-tier pairs, 9,000 progressing encounters,
+4,400 fixed-tier encounters, deterministic repeats, input-window sweeps, Pause/F4, higher starts,
+combat/scoring, persistence and menu/restart checks. Native 640×360 renders were inspected using
+injected inputs; this is not physical-keyboard user acceptance. See the measured curve and caveats
+in [DESIGN_NOTES.md](DESIGN_NOTES.md#difficulty-shaping-and-measured-pacing).
+
+**Acceptance focus:** compare the large Level-5→6 overlap step and the modest Level-10→30 escalation.
+Level 30+ is intentionally bounded endurance, not an endlessly accelerating inevitable-death timer.
+Levels 40/50 match Level 30. The user must judge whether the approximately 9% response-rate increase
+and shorter recognition time feel sufficient. Milestone 31 stays future until acceptance; no curated
+patterns were implemented. Milestone 34 is roadmap-only Web/mobile-browser scope; it has not begun.
 
 ## Required pre-release character-art polish
 
 **Functional acceptance is not final character-art approval. A substantial anatomy and combat-pose
-polish pass is required before release and belongs in Milestone 34 final polish.**
+polish pass is required before release and belongs in Milestone 35 final polish.**
 
 - Current character sprites are acceptable placeholders for continued development: implemented
   first-pass 16-bit combat art, not final character artwork.
@@ -623,7 +640,31 @@ Keep the UI simple.
 
 ---
 
-## MILESTONE 34 — FINAL POLISH
+## MILESTONE 34 — WEB / MOBILE VERSION
+
+Make Moonfall Dojo playable as a Godot Web build on desktop and mobile browsers.
+This explicitly authorised browser/mobile scope extends the earlier desktop-only V1 scope;
+it does not authorise implementation before this milestone or native Android/iOS applications.
+
+Requirements:
+
+- Godot Web export and desktop-browser play.
+- Mobile-browser landscape play with responsive 16:9 presentation.
+- Touch gameplay controls, touch-friendly menus and touch Pause.
+- Browser audio-start/autoplay handling after user interaction.
+- Preserve desktop keyboard/controller behaviour, deterministic gameplay and fixed action timing.
+- Touch must obey committed actions and fresh-press rules, without introducing input buffering.
+- Browser/mobile regression tests, including Android browsers and iPhone/Safari where practical;
+  report untested devices/browsers explicitly.
+- Optional PWA / Add to Home Screen support if practical.
+
+Verify controls, audio, scaling, pause/resume, gameplay fairness and persistence on supported
+browsers. Native Android/iOS builds remain outside this milestone unless separately requested.
+Do not implement this milestone during difficulty shaping.
+
+---
+
+## MILESTONE 35 — FINAL POLISH
 Required before release: complete the substantial
 [character anatomy and combat-pose polish](#required-pre-release-character-art-polish) above.
 Functional completion of Milestones 28/29 does not discharge this art debt. Review Player,
@@ -667,7 +708,7 @@ Possible future work:
 - online leaderboards
 - multiplayer
 - story/campaign
-- mobile version
+- native mobile application builds (browser/mobile Web support belongs to Milestone 34)
 - power-ups
 - weapons
 - unlockables
@@ -805,12 +846,14 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 30 — DIFFICULTY SHAPING — NEXT / NOT STARTED**
+**Milestone 30 — DIFFICULTY SHAPING — IMPLEMENTED / MANUAL ACCEPTANCE PENDING**
 
 Milestone 26 is complete following automated verification and user manual listening acceptance.
 Milestone 27 is complete following automated verification and user manual acceptance of the
 environment and HUD presentation. Combined Milestones 28 and 29 are complete for functional
 development following user review, with required pre-release character-art polish retained
-above and under Milestone 34. Milestone 30 has not begun; this closure does not start it.
+above and under Milestone 35. Milestone 30's verified tuning awaits user playtesting and acceptance.
+Milestone 31 remains future; do not begin it before acceptance. Milestone 34 Web / Mobile Version
+is newly defined future scope only; native mobile application builds are not included.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

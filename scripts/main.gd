@@ -22,10 +22,12 @@ const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res:/
 const THREAT_START_POSITION := Vector2(560, 300)
 const BASE_APPROACH_SPEED: float = 60.0
 const APPROACH_SPEED_PER_LEVEL: float = 5.0
-# Speed plateaus at Level 9: a conservative cap with about 195 ms of theoretical Blue input opportunity.
-# This is a tuning limit, not a mathematical impossibility boundary; attack timings stay fixed.
-const MAX_APPROACH_SPEED: float = 100.0
-# A slightly faster roll shortens Barrel passage; the global speed curve is unchanged.
+# Preserve the teaching/mid-game curve through Level 14; later steps shorten recognition time.
+# Larger late speeds reduced overlap in simulations by exhausting the same fair response slots.
+const EARLY_APPROACH_SPEED_CAP: float = 100.0
+const EXPERIENCED_APPROACH_SPEED: float = 105.0 # Level 15–19.
+const ENDURANCE_APPROACH_SPEED: float = 110.0 # Level 20+; bounded, never an inevitable-death ramp.
+# Barrel retains its slight speed premium over each Level's base speed.
 const BARREL_SPEED_MULTIPLIER: float = 1.15
 # Pacing never overrides the timing checks. Overlap is a Level 6 difficulty choice, not a safety exemption.
 const OVERLAP_START_LEVEL: int = 6
@@ -358,7 +360,11 @@ func get_spawn_gap() -> float:
 	if level <= 3: return 0.85
 	if level <= 6: return 0.65
 	if level <= 9: return 0.45
-	return 0.35
+	if level <= 14: return 0.35
+	if level <= 19: return 0.20
+	if level <= 29: return 0.10
+	# No added breathing gap at mastery Levels; reservations/capacity still gate every admission.
+	return 0.0
 
 
 func get_max_unresolved() -> int:
@@ -371,7 +377,11 @@ func is_assassin(threat_type: int) -> bool:
 
 ## Pending choices have no speed yet: a Level-up before spawn must affect the new actor.
 func get_spawn_speed(threat_type: int) -> float:
-	var base_speed: float = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
+	var base_speed: float = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), EARLY_APPROACH_SPEED_CAP)
+	if level >= 20:
+		base_speed = ENDURANCE_APPROACH_SPEED
+	elif level >= 15:
+		base_speed = EXPERIENCED_APPROACH_SPEED
 	if threat_type == ThreatType.BARREL:
 		return base_speed * BARREL_SPEED_MULTIPLIER
 	return base_speed * 1.25 if threat_type == ThreatType.SHURIKEN else base_speed

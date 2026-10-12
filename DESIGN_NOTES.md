@@ -146,9 +146,20 @@ and spatial overlap determine success. Both entry sides mirror the same mechanic
 
 ## Threat Speed
 
-`base_speed = min(60 + 5 * (level - 1), 100)` px/s: Level 1=60, Level 5=80, Level 9+=100.
-Assassins use base speed; Barrel uses `base_speed * 1.15` (69/92/115);
-Shuriken uses `base_speed * 1.25` (75/100/125).
+Levels 1–14 use `base_speed = min(60 + 5 * (level - 1), 100)` px/s.
+Levels 15–19 use 105 px/s; Levels 20+ use 110 px/s. Thus the familiar Level 1–9 ramp
+is preserved, followed by two small recognition-pressure steps rather than unbounded speed.
+Assassins use base speed; Barrel uses `base_speed * 1.15`; Shuriken uses `base_speed * 1.25`.
+
+| Level | Base / Assassins | Barrel | Shuriken |
+| --- | --- | --- | --- |
+| 1 | 60 | 69 | 75 |
+| 5 | 80 | 92 | 100 |
+| 9–14 | 100 | 115 | 125 |
+| 15–19 | 105 | 120.75 | 131.25 |
+| 20+ | 110 | 126.5 | 137.5 |
+
+All speeds are logical px/s. Jump remains 0.82 s / 55 px; Duck remains 0.60 s.
 Final speed is assigned at spawn; existing threats never speed up retroactively.
 Assassins begin their moving telegraph farther out at higher speeds, preserving its 0.35 s.
 
@@ -160,7 +171,7 @@ Godot collision stepping at 1 ms and fresh-input sampling at the normal 60 Hz ti
 | --- | --- | --- | --- |
 | 1 | 69 px/s | approximately 246–247 ms | 233 ms (15 successful press ticks) |
 | 5 | 92 px/s | approximately 366 ms | 350 ms (22 successful press ticks) |
-| 9+ | 115 px/s | approximately 437 ms | 417 ms (26 successful press ticks) |
+| 9–14 | 115 px/s | approximately 437 ms | 417 ms (26 successful press ticks) |
 
 Both sides and both facings have identical successful ticks at 60 Hz; Level 1's sub-tick
 boundary differs by 1 ms under fine stepping due to accumulated floating-point positions.
@@ -246,23 +257,109 @@ Seed before readiness for reproducibility (same seed and Player inputs give the 
 | 4–5 | 0.65 s | 1 |
 | 6 | 0.65 s | 2 |
 | 7–9 | 0.45 s | 2 |
-| 10+ | 0.35 s | 2 |
+| 10–14 | 0.35 s | 2 |
+| 15–19 | 0.20 s | 2 |
+| 20–29 | 0.10 s | 2 |
+| 30+ | 0.00 s | 2 |
 
 With one allowed, the gap is post-resolution. With two allowed, the next approach can
 start earlier, but only after the fairness check below. Cosmetic nodes never count.
 Level changes affect future speeds/pacing; existing speed and timing reservations are immutable.
 F2 recreates the scene and all scheduler state.
 
+### Difficulty shaping and measured pacing
+
+Levels 1–14 retain their established speed/gaps. Level 1 gives approximately 3.0–3.6 s
+from entry to the first standing contact, then about 4.37 s between intended responses.
+Levels 2–3 shorten travel with the existing +5 px/s steps. Level 5 averages 3.29 s per response.
+Unlocking two threats at Level 6 is a deliberate large step (1.59 s per response); its
+approximately 52% reduction from Level 5 is a priority for user playtesting, not a claim of
+automatically smooth subjective difficulty. Both approaches remain readable before their
+separate response slots. Level 8 averages 1.40 s and Level 10 averages 1.34 s.
+
+Previously Levels 10/15/20/30/40/50 had identical timing for the same seed. Tested gap-only
+changes at base 100 reduced the mean interval to 1.254 s even with a zero gap. Speed-only
+growth to 120–130 reduced overlap and sometimes increased idle time because the same
+fairness reservations then blocked admissions. A combined 115-speed candidate was also
+less effective than the selected 110 cap at sustaining overlap. The chosen late steps
+shorten visual lead time by up to 9% and raise response frequency by about 9% from Level 10
+to Level 30, without changing the reservation model, margins, action timings or threat mix.
+
+Level 30+ is a bounded endurance tier: zero **additional** gap does not mean instant or unsafe
+spawning. The response/recovery reservations, current commitment, 100 ms safety margin,
+Assassin turn allowance and two-threat cap still apply. Levels 40/50 intentionally match
+Level 30; no hidden inevitable-death ramp is added. This removes the Level-10 plateau,
+not every eventual difficulty ceiling. More authored variety remains future Milestone 31.
+Whether the modest increase feels sufficiently hard is still awaiting manual acceptance.
+
+Measured at 60 Hz with seed 300030 and 400 successfully handled threats per fixed Level
+(4,400 total), using spatially valid intended-response inputs. A test-only Level lock isolates
+each tier; separate progressing runs test real Level advancement. Spawn/response intervals
+exclude the initial entry; occupancy includes the opening and final drain. These are an
+idealised controller's pacing measurements, not human performance or a promise about all seeds.
+
+| Level | Mean spawn / response (s) | Spawn median / p10 / p90 (s) | Time with 2 unresolved | Mean unresolved | Admissions delayed by fairness | Longest cumulative fairness wait (s) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 4.367 / 4.368 | 4.383 / 4.233 / 4.600 | 0% | 0.802 | 0% | 0 |
+| 3 | 3.866 / 3.868 | 3.883 / 3.750 / 4.067 | 0% | 0.777 | 0% | 0 |
+| 5 | 3.291 / 3.292 | 3.300 / 3.200 / 3.467 | 0% | 0.798 | 0% | 0 |
+| 6 | 1.588 / 1.589 | 1.633 / 1.317 / 1.767 | 55.4% | 1.554 | 21.6% | 0.767 |
+| 8 | 1.403 / 1.404 | 1.400 / 1.083 / 1.733 | 57.9% | 1.579 | 43.1% | 0.933 |
+| 10 | 1.335 / 1.336 | 1.367 / 1.017 / 1.650 | 57.4% | 1.574 | 56.9% | 1.067 |
+| 15 | 1.274 / 1.275 | 1.300 / 0.933 / 1.633 | 57.1% | 1.571 | 71.2% | 1.200 |
+| 20 | 1.238 / 1.239 | 1.267 / 0.933 / 1.633 | 54.0% | 1.540 | 77.7% | 1.367 |
+| 30 | 1.223 / 1.223 | 1.267 / 0.900 / 1.633 | 55.9% | 1.559 | 84.5% | 1.467 |
+| 40 | 1.223 / 1.223 | 1.267 / 0.900 / 1.633 | 55.9% | 1.559 | 84.5% | 1.467 |
+| 50 | 1.223 / 1.223 | 1.267 / 0.900 / 1.633 | 55.9% | 1.559 | 84.5% | 1.467 |
+
+Fairness waits count eligible attempts blocked by reservations/current commitment, excluding
+minimum-gap and capacity waits. At Level 6+ every admission after the first overlapped an
+existing threat in this sample; overlap time is lower because threats resolve at different times.
+There was no empty gameplay time after opening at these tiers. At Levels 1/3/5, approximately
+80.2/77.7/79.8% of time had one unresolved threat; the rest was breathing time. Later time with
+one unresolved is the complement of the two-threat percentage. The exact same seeded choices
+gave Red/Blue/Barrel/Shuriken counts 90/112/97/101 and Left/Right 208/192 at every tier.
+Selection remains independent uniform draws, not rebalancing, anti-streak logic or curated patterns.
+
+Practical successful input spans from full spawn, sampled at 60 Hz (earliest-to-latest successful
+press, facing correctly for Assassins; both sides tested):
+
+| Level | Red Kick | Blue Punch | Barrel Jump | Shuriken Duck |
+| --- | --- | --- | --- | --- |
+| 1 | 350 ms | 200 ms | 233 ms | 150 ms |
+| 5 | 300–317 ms | 200 ms | 350 ms | 217 ms |
+| 9–14 | 300 ms | 183 ms | 417 ms | 267 ms |
+| 15–19 | 300 ms | 183 ms | 433 ms | 283 ms |
+| 20+ | 300 ms | 183 ms | 450 ms | 283 ms |
+
+All windows stay positive; deliberate early and late attempts fail. Red's Level-5 boundary
+differs by one physics tick between mirrored sides, already present before difficulty tuning;
+late-tier windows match. Hazard input windows widen as faster hazards clear the Player sooner:
+their increased difficulty is recognition/sequence pressure, not tighter individual timing.
+Blue remains the tighter late-game response. This asymmetry is preserved rather than changing
+Player actions or dishonest collision geometry to make every threat equally difficult.
+
+Verification passed the original 384-pair matrix plus 320 late-tier pairs, 9,000 progressing
+encounters (4,000 repeated with identical seed/timeline; 1,000 with another seed), and all fixed-tier
+runs above. No unsafe admissions, starvation, deadlocks or cap violations occurred; the measured
+minimum reservation margin remained 100 ms. Pause, F4, higher starts, combat, scoring, persistence
+and menu/restart regressions passed. F4 boundary checks cover Levels 15/20/30 while paused as
+well as running, preserving active snapshots, pending selection, RNG and legitimate unlocks.
+
+Manual acceptance should compare Levels 5→6 and 10→15→20→30, including several different seeds.
+Judge recognition, breathing room and fatigue rather than just speed. Automated inputs and
+rendered inspection do not establish human difficulty or replace physical-keyboard playtesting.
+
 ## Scheduler Fairness Model
 
 Standing first-contact lead times from either spawn (240 px from Player):
 
-| Threat | Formula (v is that actor's final speed) | Level 1 | Level 5 | Level 9+ |
-| --- | --- | --- | --- | --- |
-| Red | 202/v + 0.09 | 3.457 s | 2.615 s | 2.110 s |
-| Blue | 210/v + 0.08 | 3.580 s | 2.705 s | 2.180 s |
-| Barrel | 223/v | 3.232 s | 2.424 s | 1.939 s |
-| Shuriken | 228/v | 3.040 s | 2.280 s | 1.824 s |
+| Threat | Formula (v is that actor's final speed) | Level 1 | Level 5 | Level 9–14 | Level 20+ |
+| --- | --- | --- | --- | --- | --- |
+| Red | 202/v + 0.09 | 3.457 s | 2.615 s | 2.110 s | 1.926 s |
+| Blue | 210/v + 0.08 | 3.580 s | 2.705 s | 2.180 s | 1.989 s |
+| Barrel | 223/v | 3.232 s | 2.424 s | 1.939 s | 1.763 s |
+| Shuriken | 228/v | 3.040 s | 2.280 s | 1.824 s | 1.658 s |
 
 Assassin travel already includes the 0.35 s moving telegraph; weapon reach adds 0.09/0.08 s.
 Hazard distances subtract Player half-width 8 and radius 9/4. Barrel uses ×1.15 speed;
@@ -285,8 +382,8 @@ no actual turn; reserving the opposite-side cost avoids relying on future facing
 The 100 ms margin covers fixed-tick rounding and leaves recovery breathing room. The
 current action uses its actual remaining duration, not another complete action duration.
 
-At the speed cap, the shortest reserved approach lead is Barrel's approximately 1.119 s.
-Even after the longest fresh commitment (0.82), it leaves 0.199 s beyond the 0.10 margin. Thus zero
+At the final speed cap, the shortest reserved approach lead is Barrel's approximately 0.943 s.
+Even after the longest fresh commitment (0.82), it leaves 0.023 s beyond the 0.10 margin. Thus zero
 post-resolution delay would still allow a valid response; the positive gap bands preserve
 readability. For unresolved pairs, every ordered type/side pair can be delayed until its
 reservations separate; no forbidden pairs or rerolls are necessary. Pair verification covers
