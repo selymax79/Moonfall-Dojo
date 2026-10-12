@@ -111,4 +111,5 @@ func receive_hit() -> void:
 	if is_dead:
 		return
 	is_dead = true
+	$Art.leave_corpse()
 	queue_free()

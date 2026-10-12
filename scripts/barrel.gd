@@ -84,17 +84,3 @@ func _physics_process(delta: float) -> void:
 		queue_redraw()
 		if effect_elapsed >= EXPLOSION_DURATION or is_equal_approx(effect_elapsed, EXPLOSION_DURATION):
 			queue_free()
-
-
-## A few expanding sparks replace the Barrel; these draw commands create no collision objects.
-func _draw() -> void:
-	if phase != Phase.EXPLODING:
-		return
-	var progress: float = effect_elapsed / EXPLOSION_DURATION
-	var centre := Vector2(0, -7)
-	var colour := Color(1.0, 0.70, 0.25, 1.0 - progress)
-	for index in range(6):
-		var angle: float = TAU * index / 6.0
-		var offset := Vector2(cos(angle), sin(angle)) * lerpf(3.0, 15.0, progress)
-		draw_rect(Rect2(centre + offset - Vector2.ONE, Vector2(2, 2)), colour)
-	draw_circle(centre, lerpf(4.0, 9.0, progress), Color(1.0, 0.9, 0.5, (1.0 - progress) * 0.6))

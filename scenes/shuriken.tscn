@@ -1,6 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/shuriken.gd" id="1"]
+
+[ext_resource type="Script" path="res://scripts/combat_art.gd" id="art"]
 
 [sub_resource type="CircleShape2D" id="Body"]
 radius = 4.0
@@ -17,6 +19,7 @@ shape = SubResource("Body")
 disabled = true
 
 [node name="Visuals" type="Node2D" parent="."]
+visible = false
 
 [node name="Star" type="Polygon2D" parent="Visuals"]
 color = Color(0.82, 0.89, 1, 1)
@@ -29,3 +32,7 @@ polygon = PackedVector2Array(0, -4, 0, 0, 4, 0, 1.5, 1.5, 0, 4, 0, 0, -4, 0, -1.
 [node name="Centre" type="Polygon2D" parent="Visuals"]
 color = Color(0.08, 0.14, 0.23, 1)
 polygon = PackedVector2Array(0, -1, 1, 0, 0, 1, -1, 0)
+
+[node name="Art" type="Node2D" parent="."]
+script = ExtResource("art")
+kind = 4

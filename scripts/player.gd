@@ -1,5 +1,5 @@
-## Owns input, fixed-duration actions, spatial attacks and the placeholder death animation.
-## The root stays at the floor; Visuals moves/scales around its feet (negative Y is upward).
+## Owns input, fixed-duration actions and spatial attacks. Art reads these clocks without driving them.
+## The hidden Visuals pose rig retains the established jump/crouch geometry (negative Y is upward).
 extends Node2D
 
 # Feedback observes accepted actions/death without changing timing or collision rules.
@@ -90,7 +90,7 @@ func advance_tick(delta: float) -> void:
 	hurtbox.shape.size = Vector2(16.0, 40.0 * visuals.scale.y)
 
 
-## Committed actions own the pose; otherwise horizontal squashing gives turns a brief animation.
+## Committed actions own the collision pose; Art renders a discrete turn without sprite squashing.
 func update_living_pose(delta: float) -> void:
 	if current_action != Action.NONE:
 		update_action(delta)
@@ -229,8 +229,8 @@ func receive_hit() -> void:
 	died.emit()
 
 
-## Smoothstep eases into a permanent fallen pose while returning the limbs to rest.
-## This placeholder assumes an attacker on the right; only Visuals moves, never the Player root.
+## Preserve the death clock and hidden rig's restoration; Art renders five authored collapse poses.
+## None of these transforms moves the root or creates post-death collision.
 func update_death(delta: float) -> void:
 	death_elapsed = minf(death_elapsed + delta, DEATH_DURATION)
 	var progress: float = death_elapsed / DEATH_DURATION

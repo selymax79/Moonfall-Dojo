@@ -59,7 +59,8 @@ Standing hurtbox is 16×40; fully ducked is 16×18. Turning does not squash this
 Committed actions discard new action/turn inputs; no general buffering. Keyboard echo
 is ignored, so holding Down does not extend/restart Duck; another press is required.
 Arrow keys turn/jump/duck; Z punches; X kicks; **P pauses/resumes** (InputMap `pause_game`).
-Death cancels the action and plays a 0.40 s placeholder fall; the HUD stays visible.
+Death cancels the action and plays five collapse poses within the existing 0.40 s clock;
+the body settles on the floor and the HUD stays visible.
 
 ## Game Over / Restart
 
@@ -289,7 +290,7 @@ The fixed moonlit dojo uses a cool navy/blue-black palette, muted moonlit grey r
 with small amber lamp pools and warm cream shoji doors. The central wall stays restrained
 behind combat. The painted pixel-style architecture plate contains sky, moon, tree silhouettes,
 distant and near tiled roofs, wall, doors, lamps and wooden floor. It is an original generated
-image adapted to the logical viewport; actors retain their existing placeholder artwork.
+image adapted to the logical viewport; foreground actors use original compact pixel atlases.
 
 [dojo_environment.tscn](scenes/dojo_environment.tscn) sits behind every gameplay actor.
 Its 640×318 plate extends beneath the HUD; the visible plank floor grounds unchanged feet
@@ -303,8 +304,10 @@ physics clock. It never consumes Main's encounter RNG. One or two small bats occ
 in either direction for 7.5 s (initial wait 16–28 s, subsequent waits 22–40 s). One person or dog
 crosses a single shoji panel for 9 s, including a brief pause (initial wait 10–20 s, subsequent
 waits 18–36 s). Figures are clipped into individual paper cells so the wooden lattice remains
-in front. Two-frame silhouettes and understated opacity keep these events distinct from threats.
-Stepped 8 Hz lamp flicker modulates flame pixels, short wall/frame shadows and floor glints;
+in front. Four-frame adult walks and dog trots use two-pixel travel steps; an additional adult
+pose holds the pause. Direction mirrors both the figure and its travel. Understated opacity
+keeps these events distinct from threats. Three authored lantern-cage/timber shadow sprites
+follow an uneven stepped 8 Hz lamp cadence, with matching flame pixels and floor glints;
 the broad warm illumination is part of the static plate. This is inexpensive drawn lighting.
 The environment is Pausable, so all local clocks freeze with gameplay; menus hide and stop it.
 
@@ -322,6 +325,65 @@ initials entry. Pause dims only the play area, keeping the HUD clear; entry hint
 
 [art/README.md](art/README.md) documents source assets and the offline presentation builder.
 Milestone 27 is complete following automated verification and user manual acceptance of the environment and HUD presentation.
+
+## Character Art / Combat Feedback
+
+The combined Milestone 28/29 pass implements first-pass 16-bit combat art, not final character
+artwork. These sprites are accepted as placeholders for continued functional development.
+Player punch/kick anatomy and poses remain weak, with limbs reading too much like bent sticks;
+Red/Blue anatomy and sprite quality also need review. Current animation timing and gameplay
+alignment are good. The required pre-release drawing/pose polish is recorded in
+[Roadmap.md](Roadmap.md#required-pre-release-character-art-polish), with gameplay timings,
+hitboxes and animation-state alignment to be preserved.
+
+The pass uses original, offline-authored pixel atlases with dark outlines,
+small colour ramps, hard highlights and held key poses. Player uses navy/slate and a muted gold
+headband; Red uses crimson and steel; Blue uses cool blues with restrained cyan highlights.
+Native-sized textures use nearest filtering and only ±1 horizontal mirroring, with no runtime
+skeleton, sprite rotation or fractional sprite scaling. The background and HUD remain as accepted.
+
+[combat_art.gd](scripts/combat_art.gd) reads actor state after Main's simulation tick. It does not
+write to the actor, collision shapes, scheduler, scoring or RNG. The hidden legacy pose nodes
+remain as the established collision/jump/crouch drivers; their transforms are not applied to the
+new artwork. This preserves gameplay geometry while replacing the displayed poses.
+
+- Player: two idle poses, a narrow turn pose between facings, four low-punch poses, four high-kick
+  poses with a planted supporting leg and backward torso lean, four jump poses, three crouch/rise
+  poses and five collapse frames (a crouched death enters the low part of the sequence).
+  Existing extension/hold/recovery/death clocks select frames.
+- Red: four distance-stepped run poses, drawn-back wind-up, forward strike and recovery poses.
+  A separately drawn 26×2 blade follows the exact Sword collision-parent translation, rounded
+  only for raster display. It remains non-lethal outside the existing STRIKE phase; on defeat,
+  a cosmetic dropped blade settles beside the body.
+- Blue: four compact run poses, crouch transition, low guard/attack poses and a distinct folded
+  collapse. Its visible 4×4 fist and connected sleeve follow the actual low Fist transform.
+  The raised Player kick continues to pass above Blue's existing low hurtbox.
+- Barrel: four wood-stave/steel-band roll frames driven by distance, followed by four stepped
+  stages of low wood fragments, hoop pieces and dust during the existing 0.40 s aftermath.
+- Shuriken: four bright steel spin frames, the existing departure/fall, and a three-step small
+  floor spark during the existing 0.15 s settle. Collision remains an unrotated radius-4 circle.
+
+Player's active punch fist and full high-kick shoe align with the existing attack regions.
+Duck uses authored crouch poses rather than scaling a standing sprite; the final head is 18 px
+above planted feet. Jump poses follow the unchanged 55 px arc; a subtle flattened contact shadow
+stays on the floor and narrows at the apex. Player/Assassins/Barrel have small contact shadows.
+Effects are restrained pixel clusters: successful-hit spark, landing dust, death impact accent,
+Barrel debris and Shuriken floor contact. There is no screen shake, hit-stop or gameplay delay.
+
+Assassin death still resolves immediately. Before removal, the actor creates one harmless
+[combat_aftermath.gd](scripts/combat_aftermath.gd) node under the current run. It holds only its
+texture/facing and a 0.48 s clock, plays five collapse poses and removes itself. It has no collision
+shape, actor reference, scoring callback or scheduler registration. New threats can spawn while
+it finishes. Scene replacement removes old effects; menu entry hides/disables them with actors.
+Actor art inherits its actor's processing mode, so both pause and menu disabling freeze it;
+detached corpses explicitly use Pausable processing. No new cosmetic effect uses RNG. Shoji
+events retain the environment's separate RNG and original event timing, independent of gameplay.
+
+[build_combat_art.gd](tools/build_combat_art.gd) regenerates the 17 new PNGs deterministically.
+Each ninja atlas contains the common 32-pose authoring catalogue; runtime actors use only their
+relevant poses. No copied sprites, downloaded fonts, runtime IK or new manager is involved.
+Milestones 28 and 29 are complete for functional development following user manual review,
+with the character-art polish debt explicitly retained.
 
 ## Audio Foundation
 
@@ -371,5 +433,5 @@ all old audio before starting the fresh run. Gameplay audio callbacks never awar
 
 ## Not Yet Implemented
 
-Polished Player/threat sprites; full pause menu;
+Final character anatomy/combat-pose polish; full pause menu;
 remappable controls; controller bindings; advanced authored encounter patterns.

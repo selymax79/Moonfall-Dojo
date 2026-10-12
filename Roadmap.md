@@ -35,8 +35,10 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 25 — Controls / Options Shell | COMPLETE: keyboard navigation and input isolation verified. |
 | 26 — Audio Foundation | COMPLETE: automated integration verified and redesigned audio accepted through user listening. |
 | 27 — Environment Art Pass | COMPLETE: automated verification passed and environment/HUD presentation manually accepted by the user. |
-| 28 — Character and Threat Art Pass | NEXT: not started. |
-| 29–34 | Pending: proceed in the sequence below. |
+| 28 — Character and Threat Art Pass | COMPLETE for functional development following user review; required pre-release character-art polish remains below. |
+| 29 — Effects and Game Feel | COMPLETE for functional development following user review; preserve current timing and gameplay alignment. |
+| 30 — Difficulty Shaping | NEXT / NOT STARTED. |
+| 31–34 | Future. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -104,7 +106,41 @@ states, populated/large HUD values, Pause, both Game Over outcomes and existing 
 The viewport was also rendered in 1280×720 and 1000×650 windows; captures retain the logical
 640×360 viewport and do not themselves verify physical monitor scaling. Automated verification
 did not include physical keyboard playtesting. The user has manually reviewed and accepted
-the environment and HUD presentation. Milestone 27 is COMPLETE; Milestone 28 is NEXT.
+the environment and HUD presentation. Milestone 27 is COMPLETE.
+
+The user explicitly combined Milestones 28 and 29, including upgraded shoji figures and shadows.
+Original pixel atlases now cover Player/Assassin poses and hazard animation. Read-only visual
+selection follows existing action/collision clocks, with immediate Assassin resolution and
+separate harmless 0.48 s corpse cleanup. Contact shadows, stepped cast shadows and small hit,
+landing, death and hazard effects complete this presentation pass; no camera shake was added.
+Verification passed 621 combat/progression, 172 feature-flow, 3,625 audio, 116,980 pause,
+318,498 F4 and 2,716,418 scheduler checks (384 pairs and 9,000 encounters). Another 104,713
+presentation checks matched 200-success gameplay traces across different cosmetic seeds/rates.
+16,484 targeted art checks covered immutable hurtboxes/RNG, mirrored actions, low death poses, 60 real defeats,
+single corpse creation, no extra reward, native pause and cleanup. A 16,320-sample baseline/current
+geometry trace produced identical SHA-256 hashes for Player actions, hurtboxes and threat/weapon
+transforms at representative Levels on both sides. Rendered inspection covered
+the requested combat poses, both facings, collapse stages, hazards, background figures/shadows
+and a real Level-10 two-threat admission. These checks used automated/injected inputs rather
+than physical keyboard playtesting. Following separate manual visual review, the user accepted
+Milestones 28 and 29 as COMPLETE for functional development, with the art debt below explicitly
+retained. Milestone 30 is NEXT and has not begun.
+
+## Required pre-release character-art polish
+
+**Functional acceptance is not final character-art approval. A substantial anatomy and combat-pose
+polish pass is required before release and belongs in Milestone 34 final polish.**
+
+- Current character sprites are acceptable placeholders for continued development: implemented
+  first-pass 16-bit combat art, not final character artwork.
+- Player punch/kick anatomy and poses are notably weak; limbs currently read too much like bent
+  sticks. Player martial-arts anatomy needs a substantial drawing and pose-quality pass.
+- Punch must read as a convincing low karate punch.
+- Kick must read as a convincing lean-back high martial-arts kick.
+- Limbs must have proper volume and joint anatomy rather than stick-like construction.
+- Red and Blue sprite anatomy and overall sprite quality must receive the same review.
+- Preserve current gameplay timings, hitboxes and animation-state alignment. Animation timing
+  and gameplay alignment are good; the debt concerns sprite drawing and pose quality, not timing.
 
 This status is a checkpoint, not a substitute for inspecting the current checkout. Keep it
 and CURRENT NEXT TARGET aligned after verified completion. See [DESIGN_NOTES.md](DESIGN_NOTES.md)
@@ -588,6 +624,12 @@ Keep the UI simple.
 ---
 
 ## MILESTONE 34 — FINAL POLISH
+Required before release: complete the substantial
+[character anatomy and combat-pose polish](#required-pre-release-character-art-polish) above.
+Functional completion of Milestones 28/29 does not discharge this art debt. Review Player,
+Red and Blue artwork while preserving current gameplay timings, hitboxes and animation-state
+alignment; do not retune gameplay to compensate for drawing weaknesses.
+
 Review:
 
 - title presentation
@@ -763,10 +805,12 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 28 — Character and Threat Art Pass — NEXT**
+**Milestone 30 — DIFFICULTY SHAPING — NEXT / NOT STARTED**
 
 Milestone 26 is complete following automated verification and user manual listening acceptance.
 Milestone 27 is complete following automated verification and user manual acceptance of the
-environment and HUD presentation. No Milestone 28 character/threat art work has begun.
+environment and HUD presentation. Combined Milestones 28 and 29 are complete for functional
+development following user review, with required pre-release character-art polish retained
+above and under Milestone 34. Milestone 30 has not begun; this closure does not start it.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

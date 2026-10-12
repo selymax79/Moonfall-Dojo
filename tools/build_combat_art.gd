@@ -1,0 +1,263 @@
+## Offline, original pixel authoring. Coordinates are deliberately fitted to the existing combat geometry.
+## No runtime skeleton, interpolation, random generation or external artwork is used.
+extends SceneTree
+
+const CELL = Vector2i(96, 56)
+const ORIGIN = Vector2i(40, 48)
+var canvas: Image
+var origin := Vector2i.ZERO
+var ramp: Array[Color]
+const INK = Color("080e1c")
+const SKIN = Color("c29b78")
+const LIGHT = Color("efd2a0")
+
+func _init() -> void:
+	DirAccess.make_dir_recursive_absolute("res://art/combat")
+	for kind in range(3):
+		ramp = palettes(kind)
+		canvas = Image.create(CELL.x * 8, CELL.y * 4, false, Image.FORMAT_RGBA8)
+		for frame in range(32):
+			origin = Vector2i(frame % 8 * CELL.x, floori(frame / 8.0) * CELL.y) + ORIGIN
+			ninja(frame, kind)
+		canvas.save_png("res://art/combat/" + ["player", "red", "blue"][kind] + ".png")
+	build_hazards()
+	build_background()
+	print("Combat atlases: 32 poses per ninja; 4 barrel/star frames; 5 adult and 4 dog poses; 3 cast-shadow states.")
+	quit()
+
+func palettes(kind: int) -> Array[Color]:
+	match kind:
+		1: return [Color("301827"), Color("742a3b"), Color("bb4050"), Color("ed785d"), Color("cca66b")]
+		2: return [Color("101f3c"), Color("204977"), Color("367daf"), Color("76b8c8"), Color("c1c6ad")]
+	return [Color("141d2d"), Color("28394c"), Color("496579"), Color("8b9c9e"), Color("b18d58")]
+
+func pixel(x: int, y: int, colour: Color) -> void:
+	var p := origin + Vector2i(x,y)
+	if p.x >= 0 and p.y >= 0 and p.x < canvas.get_width() and p.y < canvas.get_height(): canvas.set_pixelv(p,colour)
+
+func box(x: int, y: int, width: int, height: int, colour: Color) -> void:
+	for row in range(y,y+height):
+		for column in range(x,x+width): pixel(column,row,colour)
+
+func poly(points: Array, colour: Color) -> void:
+	var vertices := PackedVector2Array()
+	for point in points: vertices.append(point)
+	var bounds := Rect2(vertices[0],Vector2.ZERO)
+	for point in vertices: bounds = bounds.expand(point)
+	for y in range(floori(bounds.position.y),ceili(bounds.end.y)+1):
+		for x in range(floori(bounds.position.x),ceili(bounds.end.x)+1):
+			if Geometry2D.is_point_in_polygon(Vector2(x+0.5,y+0.5),vertices): pixel(x,y,colour)
+
+func stroke(a: Vector2, b: Vector2, width: int, colour: Color) -> void:
+	var count: int = maxi(1,ceili(a.distance_to(b)))
+	for step in range(count+1):
+		var at := a.lerp(b,float(step)/count).round()
+		box(int(at.x)-floori(width/2.0),int(at.y)-floori(width/2.0),width,width,colour)
+
+func limb(a: Vector2, joint: Vector2, end: Vector2, width: int, front: bool) -> void:
+	stroke(a,joint,width+2,INK)
+	stroke(joint,end,width+2,INK)
+	stroke(a,joint,width,ramp[1] if front else ramp[0])
+	stroke(joint,end,width,ramp[2] if front else ramp[1])
+	if front:
+		stroke(a+Vector2(-1,-1),joint+Vector2(-1,-1),1,ramp[2])
+		box(int(joint.x)-1,int(joint.y)-1,3,2,ramp[3])
+	box(int(end.x)-2,int(end.y)-1,5,2,ramp[0])
+
+## Each entry is a held key pose, not a skeleton played at runtime. Feet end at local y=-1.
+func ninja(frame: int, kind: int) -> void:
+	var hip := Vector2(-1,-15)
+	var shoulder := Vector2(0,-29)
+	var head := Vector2(1,-35)
+	var knee_back := Vector2(-5,-8)
+	var foot_back := Vector2(-6,-2)
+	var knee_front := Vector2(5,-9)
+	var foot_front := Vector2(7,-2)
+	var elbow_back := Vector2(-7,-23)
+	var hand_back := Vector2(-3,-20)
+	var elbow_front := Vector2(7,-26)
+	var hand_front := Vector2(8,-30)
+	if frame == 1:
+		elbow_front += Vector2(-1,1)
+		hand_front += Vector2(-1,1)
+	if frame == 2: # narrow three-quarter turn, without scaling the sprite
+		shoulder.x = -1; head.x = -1; hand_front = Vector2(3,-26)
+		elbow_front = Vector2(4,-22); foot_front.x = 4
+	if frame >= 3 and frame <= 6:
+		shoulder.x = 2; head.x = 2
+		elbow_back = Vector2(-5,-23); hand_back = Vector2(-2,-25)
+		match frame:
+			3: elbow_front = Vector2(2,-23); hand_front = Vector2(-3,-24)
+			4: elbow_front = Vector2(10,-23); hand_front = Vector2(16,-23)
+			5: elbow_front = Vector2(14,-23); hand_front = Vector2(23,-23)
+			6: elbow_front = Vector2(8,-23); hand_front = Vector2(11,-23)
+	if frame >= 7 and frame <= 10:
+		shoulder = Vector2(-5,-29); head = Vector2(-5,-35); hip = Vector2(-1,-16)
+		knee_back = Vector2(-4,-9); foot_back = Vector2(-5,-2)
+		elbow_back = Vector2(-11,-24); hand_back = Vector2(-8,-20)
+		elbow_front = Vector2(0,-25); hand_front = Vector2(2,-28)
+		match frame:
+			7: knee_front = Vector2(7,-23); foot_front = Vector2(5,-16)
+			8: knee_front = Vector2(12,-28); foot_front = Vector2(24,-29)
+			9: knee_front = Vector2(14,-29); foot_front = Vector2(33,-30)
+			10: knee_front = Vector2(6,-22); foot_front = Vector2(11,-12)
+	if frame >= 11 and frame <= 14:
+		elbow_back = Vector2(-8,-26); hand_back = Vector2(-7,-31)
+		elbow_front = Vector2(8,-28); hand_front = Vector2(10,-33)
+		if frame == 12:
+			knee_back = Vector2(-7,-9); foot_back = Vector2(-1,-7)
+			knee_front = Vector2(8,-11); foot_front = Vector2(4,-5)
+		elif frame == 11 or frame == 14:
+			shoulder.y += 2; head.y += 2; hip.y += 2
+			knee_front = Vector2(8,-7); knee_back = Vector2(-7,-7)
+	if frame >= 15 and frame <= 17 or frame == 25 or frame == 26:
+		var low: bool = frame == 16 or frame == 25 or frame == 26
+		var top: float = -18 if frame == 16 else (-24 if low else -29)
+		head = Vector2(2,top+5); shoulder = Vector2(0,top+10); hip = Vector2(-3,-7)
+		knee_back = Vector2(-7,-4); foot_back = Vector2(-5,-2)
+		knee_front = Vector2(7,-6); foot_front = Vector2(7,-2)
+		elbow_back = Vector2(-7,top+13); hand_back = Vector2(-4,top+16)
+		elbow_front = Vector2(8,top+12); hand_front = Vector2(8,top+8)
+		if frame == 26: elbow_front = Vector2(6,-13); hand_front = Vector2(9,-12)
+	if frame >= 18 and frame <= 21:
+		var step: int = frame-18
+		shoulder = Vector2(2,-28); head = Vector2(3,-34)
+		knee_front = [Vector2(6,-11),Vector2(3,-10),Vector2(-5,-9),Vector2(0,-7)][step]
+		foot_front = [Vector2(8,-2),Vector2(-2,-3),Vector2(-7,-4),Vector2(5,-2)][step]
+		knee_back = [Vector2(-5,-9),Vector2(0,-7),Vector2(6,-11),Vector2(3,-10)][step]
+		foot_back = [Vector2(-7,-4),Vector2(5,-2),Vector2(8,-2),Vector2(-2,-3)][step]
+		elbow_front = Vector2(7,-24+step%2); hand_front = Vector2(9,-27+step%2)
+		elbow_back = Vector2(-6,-25); hand_back = Vector2(-8,-20+step%2)
+		if kind == 2: head.y += 1; shoulder.y += 1
+	if frame >= 22 and frame <= 24:
+		elbow_front = Vector2(6,-25); hand_front = Vector2(9,-23)
+		if frame == 22: shoulder.x = -2; head.x = -2; hand_front = Vector2(-10,-23)
+		if frame == 23: shoulder.x = 3; head.x = 3
+	if frame >= 27:
+		match frame:
+			27:
+				shoulder = Vector2(-5,-28); head = Vector2(-6,-34)
+				elbow_front = Vector2(6,-27); hand_front = Vector2(10,-30)
+			28:
+				hip = Vector2(-3,-9); shoulder = Vector2(-8,-21); head = Vector2(-10,-27)
+				knee_front = Vector2(6,-4); foot_front = Vector2(9,-2)
+				elbow_front = Vector2(0,-17); hand_front = Vector2(4,-12)
+				elbow_back = Vector2(-13,-17); hand_back = Vector2(-15,-10)
+			29:
+				hip = Vector2(-4,-7); shoulder = Vector2(-15,-11); head = Vector2(-19,-15)
+				knee_front = Vector2(6,-6); foot_front = Vector2(13,-2)
+				knee_back = Vector2(2,-3); foot_back = Vector2(9,-2)
+				elbow_front = Vector2(-13,-5); hand_front = Vector2(-21,-3)
+				elbow_back = Vector2(-17,-8); hand_back = Vector2(-24,-4)
+			_:
+				hip = Vector2(-2,-4); shoulder = Vector2(-15,-5); head = Vector2(-23,-6)
+				knee_front = Vector2(8,-4); foot_front = Vector2(17,-2)
+				knee_back = Vector2(5,-3); foot_back = Vector2(12,-2)
+				elbow_front = Vector2(-13,-2); hand_front = Vector2(-21,-2)
+				elbow_back = Vector2(-11,-6); hand_back = Vector2(-18,-5)
+		if kind == 2:
+			# Blue is already crouched when hit: never pop upright to borrow Red's stagger.
+			if frame == 27:
+				head = Vector2(-3,-19); shoulder = Vector2(-2,-13); hip = Vector2(-3,-7)
+				elbow_front = Vector2(5,-14); hand_front = Vector2(8,-17)
+				elbow_back = Vector2(-7,-12); hand_back = Vector2(-8,-8)
+				knee_front = Vector2(6,-5); foot_front = Vector2(8,-2)
+				knee_back = Vector2(-6,-4); foot_back = Vector2(-4,-2)
+			elif frame == 28:
+				head = Vector2(-6,-15); shoulder = Vector2(-5,-10); hip = Vector2(-2,-6)
+				elbow_front = Vector2(0,-8); hand_front = Vector2(4,-3)
+				elbow_back = Vector2(-10,-8); hand_back = Vector2(-13,-3)
+				knee_front = Vector2(5,-4); foot_front = Vector2(8,-2)
+			elif frame == 29:
+				head = Vector2(-13,-9); shoulder = Vector2(-9,-6)
+			else:
+				head = Vector2(-19,-5); shoulder = Vector2(-11,-5)
+				knee_front = Vector2(5,-6); foot_front = Vector2(9,-2)
+				elbow_front = Vector2(-10,-2); hand_front = Vector2(-17,-2)
+		if frame == 31: hand_front.x -= 1 # Last held frame relaxes the bracing hand.
+	# Back limbs, belted tunic, then foreground limbs give useful negative space and depth.
+	limb(hip+Vector2(-2,0),knee_back,foot_back,3,false)
+	limb(shoulder+Vector2(-2,0),elbow_back,hand_back,3,false)
+	poly([shoulder+Vector2(-5,-2),shoulder+Vector2(5,-2),hip+Vector2(6,2),hip+Vector2(-5,2)],INK)
+	poly([shoulder+Vector2(-3,-1),shoulder+Vector2(4,-1),hip+Vector2(4,0),hip+Vector2(-3,0)],ramp[1])
+	stroke(shoulder+Vector2(-3,0),hip+Vector2(-2,-2),2,ramp[2])
+	stroke(shoulder+Vector2(2,2),hip+Vector2(0,-3),1,ramp[3])
+	stroke(hip+Vector2(-4,-2),hip+Vector2(4,-2),2,ramp[4])
+	limb(hip+Vector2(2,0),knee_front,foot_front,4,true)
+	limb(shoulder+Vector2(2,0),elbow_front,hand_front,3,true)
+	box(int(hand_front.x)-2,int(hand_front.y)-1,4,2,SKIN)
+	box(int(hand_front.x),int(hand_front.y)-1,2,1,LIGHT)
+	# Hood: stepped crown, brow, eye slit, mask and three deliberate cloth highlight clusters.
+	var hx: int = int(head.x); var hy: int = int(head.y)
+	poly([Vector2(hx-5,hy-3),Vector2(hx-3,hy-5),Vector2(hx+3,hy-5),Vector2(hx+5,hy-2),Vector2(hx+5,hy+4),Vector2(hx-4,hy+5)],INK)
+	box(hx-3,hy-4,6,2,ramp[2]); box(hx-4,hy-2,8,6,ramp[1])
+	box(hx-3,hy-4,3,1,ramp[3]); box(hx-4,hy-1,8,1,ramp[4])
+	box(hx+1,hy,4,2,SKIN); pixel(hx+3,hy,LIGHT); pixel(hx+2,hy+1,INK)
+	box(hx,hy+2,4,2,ramp[0]); box(hx-3,hy+2,2,1,ramp[2])
+	if frame < 27:
+		stroke(Vector2(hx-4,hy),Vector2(hx-10,hy+2+(frame%2)),2,ramp[4])
+		pixel(hx-11,hy+3,ramp[1])
+	if frame == 9: # The high-kick shoe lies wholly inside x=14..36, y=-33..-27.
+		box(30,-33,6,6,INK); box(30,-32,5,4,ramp[2]); box(32,-32,3,1,ramp[3])
+
+func build_hazards() -> void:
+	canvas = Image.create(64,16,false,Image.FORMAT_RGBA8)
+	for frame in range(4):
+		origin = Vector2i(frame*16+8,8)
+		for y in range(-7,7):
+			for x in range(-7,7):
+				var radius: float = Vector2(x+0.5,y+0.5).length()
+				if radius > 7: continue
+				var colour := Color("271c20")
+				if radius < 6:
+					var rotated := Vector2(x,y).rotated(frame*PI/4)
+					colour = Color("8e542e") if posmod(int(rotated.x),4) < 3 else Color("462d25")
+					if x+y < -2: colour = colour.lightened(0.16)
+					if absf(rotated.y) > 3 and absf(rotated.y) < 5: colour = Color("829395") if x+y < 0 else Color("354657")
+				pixel(x,y,colour)
+		pixel(-2,-5,Color("e4b571")); box(-1,-1,2,2,Color("2a2225"))
+	canvas.save_png("res://art/combat/barrel.png")
+	canvas = Image.create(32,8,false,Image.FORMAT_RGBA8)
+	for frame in range(4):
+		origin = Vector2i(frame*8+4,4)
+		var points := []
+		for point in range(8):
+			var angle: float = point*PI/4+frame*PI/8
+			points.append(Vector2(cos(angle),sin(angle))*(4.0 if point%2 == 0 else 1.7))
+		poly(points,Color("728f9f"))
+		stroke(Vector2(-1,0),Vector2(2,-2).rotated(frame*PI/8),1,Color("eff4df"))
+		box(-1,-1,2,2,INK)
+	canvas.save_png("res://art/combat/shuriken.png")
+
+func build_background() -> void:
+	for frame in range(5):
+		canvas = Image.create(24,32,false,Image.FORMAT_RGBA8); origin = Vector2i(12,31)
+		var ink := Color.WHITE
+		var paused: bool = frame == 4
+		var stride: int = [4,1,-4,-1,0][frame]
+		poly([Vector2(-3,-28),Vector2(-1,-31),Vector2(3,-30),Vector2(4,-26),Vector2(2,-24),Vector2(-2,-24)],ink)
+		poly([Vector2(-2,-24),Vector2(3,-24),Vector2(5,-14),Vector2(4,-9),Vector2(-5,-9),Vector2(-4,-19)],ink)
+		stroke(Vector2(-2,-11),Vector2(-stride,-2),3,ink)
+		stroke(Vector2(2,-11),Vector2(stride,-1),3,ink)
+		stroke(Vector2(-4,-21),Vector2(-5-int(stride/2.0),-12),2,ink)
+		stroke(Vector2(4,-21),Vector2(6+int(stride/2.0),-13),2,ink)
+		if paused: stroke(Vector2(5,-17),Vector2(1,-14),2,ink)
+		canvas.save_png("res://art/combat/adult_%d.png"%frame)
+	for frame in range(4):
+		canvas = Image.create(28,18,false,Image.FORMAT_RGBA8); origin = Vector2i(13,17)
+		poly([Vector2(-9,-9),Vector2(-5,-12),Vector2(5,-11),Vector2(7,-15),Vector2(9,-17),Vector2(10,-13),Vector2(14,-10),Vector2(11,-8),Vector2(6,-8),Vector2(4,-5),Vector2(-7,-5)],Color.WHITE)
+		var step: int = [2,0,-2,0][frame]
+		stroke(Vector2(-6,-6),Vector2(-6+step,-1),2,Color.WHITE)
+		stroke(Vector2(4,-6),Vector2(4-step,-1),2,Color.WHITE)
+		stroke(Vector2(-8,-8),Vector2(-11,-13),2,Color.WHITE)
+		pixel(10,-12,Color.TRANSPARENT)
+		canvas.save_png("res://art/combat/dog_%d.png"%frame)
+	for frame in range(3):
+		canvas = Image.create(64,84,false,Image.FORMAT_RGBA8); origin = Vector2i(26,0)
+		var shadow := Color("111527")
+		# Lantern cage, bracket and a stepped door-timber projection, all hard pixel edges.
+		poly([Vector2(-3,14),Vector2(4,14),Vector2(9+frame,46),Vector2(5,51),Vector2(-8-frame,49)],shadow)
+		box(-6,27,13+frame,2,shadow); box(-7,35,15+frame,2,shadow)
+		poly([Vector2(20,0),Vector2(23,0),Vector2(34,71),Vector2(30-frame,71)],shadow)
+		for row in range(4): box(-18+row*4,73+row*3,34-row*7,1,Color("754a2f"))
+		canvas.save_png("res://art/combat/lamp_shadow_%d.png"%frame)

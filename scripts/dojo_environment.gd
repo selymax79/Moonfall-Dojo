@@ -1,9 +1,11 @@
 ## Presentation only. Native pause freezes local clocks; this never reads or calls gameplay RNG.
 extends Node2D
 
-const PERSON = [preload("res://art/background/person_0.png"), preload("res://art/background/person_1.png")]
-const DOG = [preload("res://art/background/dog_0.png"), preload("res://art/background/dog_1.png")]
-const FLICKER = [0.72, 0.93, 0.80, 1.0, 0.86, 0.96, 0.78, 0.89]
+const PERSON = [preload("res://art/combat/adult_0.png"), preload("res://art/combat/adult_1.png"), preload("res://art/combat/adult_2.png"), preload("res://art/combat/adult_3.png"), preload("res://art/combat/adult_4.png")]
+const DOG = [preload("res://art/combat/dog_0.png"), preload("res://art/combat/dog_1.png"), preload("res://art/combat/dog_2.png"), preload("res://art/combat/dog_3.png")]
+const SHADOWS = [preload("res://art/combat/lamp_shadow_0.png"), preload("res://art/combat/lamp_shadow_1.png"), preload("res://art/combat/lamp_shadow_2.png")]
+# Three held light/shadow states, with a deliberately uneven eight-beat cadence.
+const FLICKER = [0, 2, 1, 2, 1, 2, 0, 1]
 const DOORS = [Rect2(116, 204, 88, 66), Rect2(436, 204, 88, 66)]
 @export var cosmetic_seed: int = 270127
 var cosmetic_rng := RandomNumberGenerator.new()
@@ -85,30 +87,33 @@ func draw_bat(at: Vector2, wings_up: bool) -> void:
 	draw_colored_polygon(PackedVector2Array([at, at + Vector2(-5, rise), at + Vector2(-3, 3), at + Vector2(1, 2)]), ink)
 	draw_colored_polygon(PackedVector2Array([at + Vector2(2, 0), at + Vector2(7, rise), at + Vector2(5, 3), at + Vector2(2, 2)]), ink)
 
-## Stepped modulation changes flame panes, short wall/frame shadows and floor glints together.
-## No dynamic lights or shadow casting can change collision/readability in the centre lane.
+## Three authored cage/timber shadow sprites follow the same stepped lamp cadence.
+## This is a local cast-shadow accent, not a dynamic light or gameplay mask.
 func draw_lamps() -> void:
 	for side in range(2):
-		var x: float = 65.0 if side == 0 else 575.0
-		var strength: float = FLICKER[(floori(ambient_time * 8.0) + side * 3) % FLICKER.size()]
+		draw_set_transform(Vector2(640,0) if side == 1 else Vector2.ZERO,0,Vector2(-1,1) if side == 1 else Vector2.ONE)
+		var x: float = 65.0
+		var state: int = FLICKER[(floori(ambient_time * 8.0) + side * 3) % FLICKER.size()]
+		var strength: float = [0.70,0.85,1.0][state]
+		draw_texture(SHADOWS[state],Vector2(x-26,217),Color(1,1,1,0.26))
 		draw_rect(Rect2(x - 3, 217, 6, 11), Color(0.08, 0.025, 0.01, (1.0 - strength) * 0.75))
 		draw_rect(Rect2(x - 1, 221 - floori(strength * 2), 2, 6), Color(1.0, 0.72, 0.24, strength * 0.55))
-		var shadow: float = 6.0 + floorf(strength * 4.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(x - 3, 237), Vector2(x + 3, 237), Vector2(x + shadow, 254), Vector2(x - shadow, 254)]), Color(0.015, 0.025, 0.05, 0.12 + strength * 0.08))
 		for row in range(3):
 			draw_rect(Rect2(x - 12 + row * 3, 289 + row * 4, 25 - row * 5, 1), Color(0.95, 0.52, 0.18, strength * 0.23))
-		var frame_x: float = 114.0 if side == 0 else 524.0
-		draw_colored_polygon(PackedVector2Array([Vector2(frame_x, 236), Vector2(frame_x + 2, 236), Vector2(frame_x + 5 + floorf(strength * 2), 271), Vector2(frame_x + 2, 271)]), Color(0.025, 0.02, 0.025, 0.16 + strength * 0.12))
+	draw_set_transform(Vector2.ZERO)
 
 ## Clip a small translucent figure into paper cells, leaving every foreground grid rail intact.
 func draw_door_activity() -> void:
 	var door: Rect2 = DOORS[door_index]
 	var moving_time: float = door_elapsed - clampf(door_elapsed - 3.4, 0.0, 0.9)
 	var progress: float = clampf(moving_time / 8.1, 0.0, 1.0)
-	if door_direction < 0: progress = 1.0 - progress
-	var frame: int = 0 if door_elapsed > 3.4 and door_elapsed < 4.3 else floori(ambient_time * 4.0) % 2
+	var resting: bool = door_elapsed > 3.4 and door_elapsed < 4.3
+	var frame: int = floori(moving_time * 6.0) % 4
+	if resting: frame = 0 if door_is_dog else 4
 	var texture: Texture2D = DOG[frame] if door_is_dog else PERSON[frame]
-	var actor := Rect2(Vector2(floorf(door.position.x - 24.0 + progress * 136.0), 268.0 - texture.get_height()), texture.get_size())
+	# Two-pixel travel steps accompany the small walk/trot cycle; a separate pose holds the pause.
+	var actor := Rect2(Vector2(door.position.x - 24.0 + floorf(progress * 68.0)*2.0, 268.0 - texture.get_height()), texture.get_size())
+	if door_direction < 0: draw_set_transform(Vector2(door.get_center().x*2,0),0,Vector2(-1,1))
 	# Coordinates follow the authored plate; this mask keeps the figures behind the shoji lattice.
 	var columns: Array[int] = [0, 12, 24, 36, 47, 58, 69, 81, 88]
 	var rows: Array[int] = [0, 11, 21, 31, 42, 53, 66]
@@ -118,3 +123,4 @@ func draw_door_activity() -> void:
 			var clipped: Rect2 = pane.intersection(actor)
 			if clipped.has_area():
 				draw_texture_rect_region(texture, clipped, Rect2(clipped.position - actor.position, clipped.size), Color(0.18, 0.15, 0.13, 0.46))
+	draw_set_transform(Vector2.ZERO)
