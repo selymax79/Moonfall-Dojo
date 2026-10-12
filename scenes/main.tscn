@@ -1,12 +1,18 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="3_main"]
 [ext_resource type="Script" path="res://scripts/game_audio.gd" id="4_audio"]
 
+[ext_resource type="PackedScene" path="res://scenes/dojo_environment.tscn" id="5_environment"]
+[ext_resource type="Script" path="res://scripts/run_hud.gd" id="6_hud"]
+[ext_resource type="FontFile" path="res://art/ui/dojo_font.tres" id="7_font"]
+
 [node name="Main" type="Node2D"]
 process_mode = 3
 script = ExtResource("3_main")
+
+[node name="Environment" parent="." instance=ExtResource("5_environment")]
 
 [node name="Player" parent="." instance=ExtResource("1_player")]
 process_mode = 1
@@ -14,55 +20,80 @@ position = Vector2(320, 300)
 
 [node name="HUD" type="CanvasLayer" parent="."]
 
-[node name="RunStats" type="VBoxContainer" parent="HUD"]
-offset_left = 12.0
-offset_top = 12.0
-offset_right = 172.0
-offset_bottom = 104.0
+[node name="RunStats" type="Control" parent="HUD"]
+offset_top = 308.0
+offset_right = 640.0
+offset_bottom = 360.0
 mouse_filter = 2
-theme_override_constants/separation = 2
+texture_filter = 1
+theme_override_fonts/font = ExtResource("7_font")
+script = ExtResource("6_hud")
 
 [node name="HighScoreLabel" type="Label" parent="HUD/RunStats"]
-layout_mode = 2
+offset_left = 18.0
+offset_top = 10.0
+offset_right = 256.0
+offset_bottom = 26.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
-theme_override_font_sizes/font_size = 16
-text = "High Score 000000"
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 8
+theme_override_colors/font_color = Color(0.68, 0.73, 0.75, 1)
+text = "HI 00000000"
 
 [node name="ScoreLabel" type="Label" parent="HUD/RunStats"]
-layout_mode = 2
+offset_left = 18.0
+offset_top = 28.0
+offset_right = 256.0
+offset_bottom = 44.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 16
-text = "Score 000000"
+theme_override_colors/font_color = Color(0.94, 0.85, 0.66, 1)
+text = "SCORE 00000000"
 
 [node name="KillsLabel" type="Label" parent="HUD/RunStats"]
-layout_mode = 2
+offset_left = 282.0
+offset_top = 8.0
+offset_right = 446.0
+offset_bottom = 24.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 16
-text = "Kills 0"
+theme_override_colors/font_color = Color(0.76, 0.76, 0.69, 1)
+text = "KILLS 0"
 
 [node name="DodgesLabel" type="Label" parent="HUD/RunStats"]
-layout_mode = 2
+offset_left = 282.0
+offset_top = 29.0
+offset_right = 446.0
+offset_bottom = 45.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 16
-text = "Dodges 0"
+theme_override_colors/font_color = Color(0.76, 0.76, 0.69, 1)
+text = "DODGES 0"
 
 [node name="LevelLabel" type="Label" parent="HUD/RunStats"]
-layout_mode = 2
+offset_left = 474.0
+offset_top = 8.0
+offset_right = 626.0
+offset_bottom = 24.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 16
-text = "Level 1"
+theme_override_colors/font_color = Color(0.92, 0.73, 0.40, 1)
+text = "LEVEL 1"
 
 [node name="MultiplierLabel" type="Label" parent="HUD/RunStats"]
-layout_mode = 2
+offset_left = 474.0
+offset_top = 29.0
+offset_right = 626.0
+offset_bottom = 45.0
 mouse_filter = 2
-theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
+theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 16
-text = "Multiplier x1.0"
+theme_override_colors/font_color = Color(0.86, 0.59, 0.32, 1)
+text = "x1.0"
 
 [node name="TitleOverlay" type="Control" parent="HUD"]
 anchors_preset = 15
@@ -212,6 +243,14 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="MessagePanel" type="ColorRect" parent="HUD/GameOverOverlay"]
+offset_left = 182.0
+offset_top = 151.0
+offset_right = 458.0
+offset_bottom = 231.0
+mouse_filter = 2
+color = Color(0.02, 0.035, 0.065, 0.94)
+
 [node name="GameOverLabel" type="Label" parent="HUD/GameOverOverlay"]
 layout_mode = 1
 anchors_preset = 15
@@ -221,10 +260,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
-theme_override_font_sizes/font_size = 28
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 24
 text = "GAME OVER"
 horizontal_alignment = 1
 vertical_alignment = 1
+
 
 [node name="RestartHint" type="Label" parent="HUD/GameOverOverlay"]
 layout_mode = 1
@@ -241,9 +282,11 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "Enter to restart"
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 8
+text = "ENTER TO RESTART"
 horizontal_alignment = 1
+
 
 [node name="PauseOverlay" type="Control" parent="HUD"]
 visible = false
@@ -258,11 +301,19 @@ mouse_filter = 2
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
-anchor_bottom = 1.0
+offset_bottom = 308.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.015, 0.02, 0.04, 0.45)
+
+[node name="MessagePanel" type="ColorRect" parent="HUD/PauseOverlay"]
+offset_left = 182.0
+offset_top = 151.0
+offset_right = 458.0
+offset_bottom = 231.0
+mouse_filter = 2
+color = Color(0.02, 0.035, 0.065, 0.94)
 
 [node name="PausedLabel" type="Label" parent="HUD/PauseOverlay"]
 layout_mode = 1
@@ -273,10 +324,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
-theme_override_font_sizes/font_size = 28
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 24
 text = "PAUSED"
 horizontal_alignment = 1
 vertical_alignment = 1
+
 
 [node name="ResumeHint" type="Label" parent="HUD/PauseOverlay"]
 layout_mode = 1
@@ -293,9 +346,11 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "P to resume"
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 8
+text = "P TO RESUME"
 horizontal_alignment = 1
+
 
 [node name="UnlockHint" type="Label" parent="HUD/TitleOverlay"]
 layout_mode = 0
@@ -482,9 +537,9 @@ horizontal_alignment = 1
 [node name="InitialsLabel" type="Label" parent="HUD/InitialsOverlay"]
 layout_mode = 0
 offset_left = 160.0
-offset_top = 230.0
+offset_top = 220.0
 offset_right = 480.0
-offset_bottom = 273.0
+offset_bottom = 263.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 30
@@ -494,9 +549,9 @@ horizontal_alignment = 1
 [node name="EntryHint" type="Label" parent="HUD/InitialsOverlay"]
 layout_mode = 0
 offset_left = 80.0
-offset_top = 291.0
+offset_top = 264.0
 offset_right = 560.0
-offset_bottom = 341.0
+offset_bottom = 307.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 14

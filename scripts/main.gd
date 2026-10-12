@@ -64,7 +64,7 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var multiplier_label: Label = $HUD/RunStats/MultiplierLabel
 @onready var game_over_overlay: Control = $HUD/GameOverOverlay
 @onready var pause_overlay: Control = $HUD/PauseOverlay
-@onready var run_stats: Control = $HUD/RunStats
+@onready var run_stats = $HUD/RunStats
 @onready var title_overlay: Control = $HUD/TitleOverlay
 @onready var title_high_score: Label = $HUD/TitleOverlay/HighScoreLabel
 @onready var controls_overlay: Control = $HUD/ControlsOverlay
@@ -107,6 +107,7 @@ func _ready() -> void:
 
 ## Visibility and selection have no effect on gameplay clocks or RNG.
 func update_menu() -> void:
+	$Environment.set_active(game_state == GameState.RUN)
 	title_overlay.visible = game_state == GameState.TITLE
 	controls_overlay.visible = game_state == GameState.CONTROLS
 	options_overlay.visible = game_state == GameState.OPTIONS
@@ -226,17 +227,18 @@ func show_run_result() -> void:
 		game_over_overlay.show()
 
 
-## Presentation reads the record and run counters; padding expands naturally beyond six digits.
+## Presentation only: fixed status slots, eight-digit minimum scores, no truncation of larger values.
 func update_hud() -> void:
-	high_score_label.text = "High Score %06d" % high_score
-	score_label.text = "Score %06d" % score
-	kills_label.text = "Kills %d" % kills
-	dodges_label.text = "Dodges %d" % dodges
-	level_label.text = "Level %d" % level
+	high_score_label.text = "HI %08d" % high_score
+	score_label.text = "SCORE %08d" % score
+	kills_label.text = "KILLS %d" % kills
+	dodges_label.text = "DODGES %d" % dodges
+	level_label.text = "LEVEL %d" % level
 	var half_units: int = get_multiplier_half_units()
 	# Integer quotient and remainder display exact halves with one decimal place.
 	@warning_ignore("integer_division")
-	multiplier_label.text = "Multiplier x%d.%d" % [half_units / 2, (half_units % 2) * 5]
+	multiplier_label.text = "x%d.%d" % [half_units / 2, (half_units % 2) * 5]
+	run_stats.fit_values()
 
 
 ## Two half-units mean x1.0; each three effective run levels (including dev boosts) add a half-unit.

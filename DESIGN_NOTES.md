@@ -285,7 +285,43 @@ fixed geometry/timings: retuning them requires recalculation and pair/regression
 
 640×360 logical viewport, 16:9, fractional viewport scaling with aspect preservation,
 nearest-neighbour filtering, Compatibility renderer, dark navy clear colour.
-All artwork is currently simple placeholder geometry; there is no drawn floor/background.
+The fixed moonlit dojo uses a cool navy/blue-black palette, muted moonlit grey roofs and trees,
+with small amber lamp pools and warm cream shoji doors. The central wall stays restrained
+behind combat. The painted pixel-style architecture plate contains sky, moon, tree silhouettes,
+distant and near tiled roofs, wall, doors, lamps and wooden floor. It is an original generated
+image adapted to the logical viewport; actors retain their existing placeholder artwork.
+
+[dojo_environment.tscn](scenes/dojo_environment.tscn) sits behind every gameplay actor.
+Its 640×318 plate extends beneath the HUD; the visible plank floor grounds unchanged feet
+at y=300. Architecture stays fixed: independent cloud motion provides depth without camera sway.
+Two repeated pixel cloud banks drift at +1.6 and −3.1 logical px/s, snapped to whole pixels.
+A small authored sky mask lets clouds cross the moon without painting over trees or roofs.
+There are no dynamic lights, physics bodies or gameplay callbacks in this environment.
+
+[dojo_environment.gd](scripts/dojo_environment.gd) owns its own seeded cosmetic RNG and local
+physics clock. It never consumes Main's encounter RNG. One or two small bats occasionally cross
+in either direction for 7.5 s (initial wait 16–28 s, subsequent waits 22–40 s). One person or dog
+crosses a single shoji panel for 9 s, including a brief pause (initial wait 10–20 s, subsequent
+waits 18–36 s). Figures are clipped into individual paper cells so the wooden lattice remains
+in front. Two-frame silhouettes and understated opacity keep these events distinct from threats.
+Stepped 8 Hz lamp flicker modulates flame pixels, short wall/frame shadows and floor glints;
+the broad warm illumination is part of the static plate. This is inexpensive drawn lighting.
+The environment is Pausable, so all local clocks freeze with gameplay; menus hide and stop it.
+
+The run HUD is a fixed 640×52 status strip at y=308, below the existing gameplay floor.
+Dark timber/navy framing and a thin bronze highlight separate it from the fighting lane.
+Left: HI and SCORE; centre: KILLS and DODGES; right: LEVEL and multiplier. Values retain
+their existing meanings and update through Main. Score/HI have a minimum of eight digits,
+never a maximum; multiplier remains x1.0/x1.5/etc. No statistic moves or animates.
+[run_hud.gd](scripts/run_hud.gd) owns only the panel drawing and text fitting.
+An original project-owned 5×7 bitmap alphabet has an 8 px native line height, normally rendered
+at 16 px for statistics, 8 px for HI and 24 px for Pause/Game Over headings. Integer font scaling
+keeps edges crisp. A value too wide for its column uses the native 8 px size; full signed-64-bit
+positive integer values fit without truncation. Final stats remain visible at Game Over and
+initials entry. Pause dims only the play area, keeping the HUD clear; entry hints sit above it.
+
+[art/README.md](art/README.md) documents source assets and the offline presentation builder.
+Milestone 27 is complete following automated verification and user manual acceptance of the environment and HUD presentation.
 
 ## Audio Foundation
 
@@ -335,5 +371,5 @@ all old audio before starting the fresh run. Gameplay audio callbacks never awar
 
 ## Not Yet Implemented
 
-Full background art; polished sprites; full pause menu;
+Polished Player/threat sprites; full pause menu;
 remappable controls; controller bindings; advanced authored encounter patterns.

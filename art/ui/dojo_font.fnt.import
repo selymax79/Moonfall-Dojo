@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://coc1hlrs0unuc"
+path="res://.godot/imported/dojo_font.fnt-f724b8dfe6eaca9340732de28d2e8298.fontdata"
+
+[deps]
+
+source_file="res://art/ui/dojo_font.fnt"
+dest_files=["res://.godot/imported/dojo_font.fnt-f724b8dfe6eaca9340732de28d2e8298.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

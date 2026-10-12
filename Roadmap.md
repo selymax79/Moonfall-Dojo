@@ -34,8 +34,9 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 24 — Highest Level Unlock + Start Level | COMPLETE: legitimate unlocks, higher starts and restarts verified. |
 | 25 — Controls / Options Shell | COMPLETE: keyboard navigation and input isolation verified. |
 | 26 — Audio Foundation | COMPLETE: automated integration verified and redesigned audio accepted through user listening. |
-| 27 — Environment Art Pass | NEXT: not started. |
-| 28–34 | Pending: proceed in the sequence below. |
+| 27 — Environment Art Pass | COMPLETE: automated verification passed and environment/HUD presentation manually accepted by the user. |
+| 28 — Character and Threat Art Pass | NEXT: not started. |
+| 29–34 | Pending: proceed in the sequence below. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -92,7 +93,18 @@ A native nine-voice stress capture at full settings remained below clipping. Run
 scenes, project settings and buses match the accepted integration byte-for-byte.
 User manual listening accepted the redesigned audio foundation: “Feels a lot better.”
 Together with the automated verification above, this completes Milestone 26.
-Milestone 27 is the next target; it has not been started.
+Milestone 27 adds the moonlit dojo, independently moving masked clouds, occasional bats and
+shoji figures, lamp/shadow flicker and a fixed bottom HUD with an original bitmap font.
+The 172 feature-flow, 621 combat/progression, 3,625 audio, 116,980 pause and 318,498 F4 checks
+passed with this presentation. A further 104,713 presentation/scheduler checks compared identical
+200-success gameplay traces under different cosmetic seeds and 1× versus 9× ambient time.
+Ten simulated minutes produced 16 bat and 16 door events without adding cosmetic nodes.
+Rendered inspection covered all four threats, a real two-threat Level-10 encounter, ambient
+states, populated/large HUD values, Pause, both Game Over outcomes and existing menus.
+The viewport was also rendered in 1280×720 and 1000×650 windows; captures retain the logical
+640×360 viewport and do not themselves verify physical monitor scaling. Automated verification
+did not include physical keyboard playtesting. The user has manually reviewed and accepted
+the environment and HUD presentation. Milestone 27 is COMPLETE; Milestone 28 is NEXT.
 
 This status is a checkpoint, not a substitute for inspecting the current checkout. Keep it
 and CURRENT NEXT TARGET aligned after verified completion. See [DESIGN_NOTES.md](DESIGN_NOTES.md)
@@ -751,8 +763,10 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 27 — Environment Art Pass — NEXT**
+**Milestone 28 — Character and Threat Art Pass — NEXT**
 
 Milestone 26 is complete following automated verification and user manual listening acceptance.
+Milestone 27 is complete following automated verification and user manual acceptance of the
+environment and HUD presentation. No Milestone 28 character/threat art work has begun.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.
