@@ -80,7 +80,7 @@ Run `godot --headless --path . --script res://tools/build_combat_art.gd` to rebu
 | [player.png](combat/player.png) | Navy/slate ninja, muted gold accent. |
 | [red.png](combat/red.png) | Crimson sword ninja; blade rendered separately from its collision transform. |
 | [blue.png](combat/blue.png) | Blue low-striking ninja; fist rendered from its collision transform. |
-| [barrel.png](combat/barrel.png) | Four 16×16 roll cells around a radius-7 footprint. |
+| [barrel.png](combat/barrel.png) | Eight 20×20 end-face roll cells spanning a full clockwise revolution; each contains an 18×18 circle matching radius 9. Reverse sequence for leftward travel. |
 | [shuriken.png](combat/shuriken.png) | Four 8×8 steel spin cells. |
 | [adult_0.png](combat/adult_0.png), [adult_1.png](combat/adult_1.png), [adult_2.png](combat/adult_2.png), [adult_3.png](combat/adult_3.png), [adult_4.png](combat/adult_4.png) | Four 24×32 walk poses plus a stationary pause pose. |
 | [dog_0.png](combat/dog_0.png), [dog_1.png](combat/dog_1.png), [dog_2.png](combat/dog_2.png), [dog_3.png](combat/dog_3.png) | Four 28×18 trot poses. |

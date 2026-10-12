@@ -22,7 +22,7 @@ func _init() -> void:
 		canvas.save_png("res://art/combat/" + ["player", "red", "blue"][kind] + ".png")
 	build_hazards()
 	build_background()
-	print("Combat atlases: 32 poses per ninja; 4 barrel/star frames; 5 adult and 4 dog poses; 3 cast-shadow states.")
+	print("Combat atlases: 32 poses per ninja; 8 barrel/4 star frames; 5 adult and 4 dog poses; 3 cast-shadow states.")
 	quit()
 
 func palettes(kind: int) -> Array[Color]:
@@ -201,21 +201,27 @@ func ninja(frame: int, kind: int) -> void:
 		box(30,-33,6,6,INK); box(30,-32,5,4,ramp[2]); box(32,-32,3,1,ramp[3])
 
 func build_hazards() -> void:
-	canvas = Image.create(64,16,false,Image.FORMAT_RGBA8)
-	for frame in range(4):
-		origin = Vector2i(frame*16+8,8)
-		for y in range(-7,7):
-			for x in range(-7,7):
+	# An 18 px drawn circle matches radius 9; one transparent pixel pads each 20 px cell.
+	canvas = Image.create(160,20,false,Image.FORMAT_RGBA8)
+	for frame in range(8):
+		origin = Vector2i(frame*20+10,10)
+		var angle: float = frame*PI/4.0
+		for y in range(-9,9):
+			for x in range(-9,9):
 				var radius: float = Vector2(x+0.5,y+0.5).length()
-				if radius > 7: continue
+				if radius > 9: continue
 				var colour := Color("271c20")
-				if radius < 6:
-					var rotated := Vector2(x,y).rotated(frame*PI/4)
+				if radius < 8:
+					# Inverse lookup rotates the drawn end-face clockwise as the frame increases.
+					# Eight frames cover a whole revolution, avoiding a half-turn reset.
+					var rotated := Vector2(x+0.5,y+0.5).rotated(-angle)
 					colour = Color("8e542e") if posmod(int(rotated.x),4) < 3 else Color("462d25")
 					if x+y < -2: colour = colour.lightened(0.16)
-					if absf(rotated.y) > 3 and absf(rotated.y) < 5: colour = Color("829395") if x+y < 0 else Color("354657")
+					if absf(rotated.y) > 4 and absf(rotated.y) < 7: colour = Color("829395") if x+y < 0 else Color("354657")
+					# A plug away from the axle makes travel direction visible throughout the roll.
+					if rotated.distance_to(Vector2(0,-4)) < 1.5: colour = Color("e4b571")
 				pixel(x,y,colour)
-		pixel(-2,-5,Color("e4b571")); box(-1,-1,2,2,Color("2a2225"))
+		box(-1,-1,2,2,Color("2a2225"))
 	canvas.save_png("res://art/combat/barrel.png")
 	canvas = Image.create(32,8,false,Image.FORMAT_RGBA8)
 	for frame in range(4):

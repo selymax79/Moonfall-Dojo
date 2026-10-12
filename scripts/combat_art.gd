@@ -46,7 +46,9 @@ func update_pose() -> void:
 				actor.Action.KICK:
 					frame = 7 if time < 0.04 else (8 if time < actor.KICK_EXTENSION_DURATION else (9 if time < 0.24 else 10))
 				actor.Action.JUMP:
-					frame = 11 if time < 0.075 else (12 if time < 0.50 else (13 if time < 0.68 else 14))
+					# Keep authored pose phases aligned when the deterministic arc duration is tuned.
+					var progress: float = time / actor.JUMP_DURATION
+					frame = 11 if progress < 0.10 else (12 if progress < 2.0/3.0 else (13 if progress < 0.68/0.75 else 14))
 				actor.Action.DUCK:
 					# Select genuine crouch poses, never vertically scale a standing sprite.
 					var height: float = actor.hurtbox.shape.size.y
@@ -63,6 +65,10 @@ func update_pose() -> void:
 				frame = 22 if actor.phase == actor.Phase.WINDUP else (23 if actor.phase == actor.Phase.STRIKE else 24)
 			else:
 				frame = 15 if actor.crouch_elapsed < actor.CROUCH_DURATION else (26 if actor.phase == actor.Phase.STRIKE else 25)
+	elif kind == 3:
+		# Signed distance/radius: rightward travel rolls clockwise, leftward anticlockwise.
+		# Round around each authored pose so either direction switches at the same distance.
+		frame = posmod(roundi(actor.visuals.rotation/(PI/4.0)),8)
 	else:
 		frame = posmod(floori(actor.visuals.rotation/(PI/4.0)),4)
 	queue_redraw()
@@ -93,8 +99,8 @@ func _draw() -> void:
 			if actor.is_dead and actor.death_elapsed < 0.08: spark(Vector2(0,lift-22),actor.death_elapsed/0.08)
 	elif kind == 3:
 		if actor.phase != actor.Phase.EXPLODING:
-			contact_shadow(Vector2.ZERO,15)
-			draw_texture_rect_region(BARREL,Rect2(-8,-15,16,16),Rect2(frame*16,0,16,16))
+			contact_shadow(Vector2.ZERO,19)
+			draw_texture_rect_region(BARREL,Rect2(-10,-19,20,20),Rect2(frame*20,0,20,20))
 		else: barrel_debris(actor.effect_elapsed/actor.EXPLOSION_DURATION)
 	else:
 		var settled: bool = actor.phase == actor.Phase.SETTLED

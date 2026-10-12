@@ -1,6 +1,6 @@
 ## A rolling floor obstacle. Main advances Player first, then movement and direct collision queries.
 ## Main never sends Player attacks here; it awards a Dodge and score once when safe passage completes.
-## The scene's 7 px radius and 0.75 s Jump give about 195 ms of theoretical input opportunity at 60 px/s.
+## Radius 9 and the 0.82 s Jump give about 247 ms of input opportunity at Level 1 (69 px/s).
 extends Area2D
 
 # Cosmetic transition only; Main has already awarded the dodge and released gameplay ownership.
@@ -13,7 +13,7 @@ const EXPLOSION_DURATION: float = 0.40
 var phase: Phase = Phase.ACTIVE
 var effect_elapsed: float = 0.0
 
-# Main supplies the same Level speed as Assassins before entering the tree.
+# Main snapshots Level speed times 1.15 before entering the tree; later Level changes cannot alter it.
 var movement_speed: float = 60.0
 # +1 enters from the right; -1 reflects the travel direction from the left.
 var entry_side: int = 1

@@ -25,14 +25,16 @@ const APPROACH_SPEED_PER_LEVEL: float = 5.0
 # Speed plateaus at Level 9: a conservative cap with about 195 ms of theoretical Blue input opportunity.
 # This is a tuning limit, not a mathematical impossibility boundary; attack timings stay fixed.
 const MAX_APPROACH_SPEED: float = 100.0
+# A slightly faster roll shortens Barrel passage; the global speed curve is unchanged.
+const BARREL_SPEED_MULTIPLIER: float = 1.15
 # Pacing never overrides the timing checks. Overlap is a Level 6 difficulty choice, not a safety exemption.
 const OVERLAP_START_LEVEL: int = 6
 const FAIRNESS_MARGIN: float = 0.10
 const ASSASSIN_TURN_ALLOWANCE: float = 0.10
 # Intended responses in ThreatType order: Kick, Punch, Jump, Duck.
-const RESPONSE_DURATIONS = [0.40, 0.30, 0.75, 0.60]
+const RESPONSE_DURATIONS = [0.40, 0.30, 0.82, 0.60]
 # Player.Action order: NONE, PUNCH, KICK, DUCK, JUMP. Keep aligned with Player's fixed timings.
-const PLAYER_ACTION_DURATIONS = [0.0, 0.30, 0.40, 0.60, 0.75]
+const PLAYER_ACTION_DURATIONS = [0.0, 0.30, 0.40, 0.60, 0.82]
 const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
 var high_score: int:
@@ -370,6 +372,8 @@ func is_assassin(threat_type: int) -> bool:
 ## Pending choices have no speed yet: a Level-up before spawn must affect the new actor.
 func get_spawn_speed(threat_type: int) -> float:
 	var base_speed: float = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), MAX_APPROACH_SPEED)
+	if threat_type == ThreatType.BARREL:
+		return base_speed * BARREL_SPEED_MULTIPLIER
 	return base_speed * 1.25 if threat_type == ThreatType.SHURIKEN else base_speed
 
 
@@ -379,7 +383,7 @@ func get_lethal_lead(threat_type: int, speed: float) -> float:
 	match threat_type:
 		ThreatType.RED: return 202.0 / speed + 0.09 # 38 px stop; blade reaches Player 90 ms into strike.
 		ThreatType.BLUE: return 210.0 / speed + 0.08 # 30 px stop; fist reaches Player 80 ms into strike.
-		ThreatType.BARREL: return 225.0 / speed # 240 px separation minus 8 px Player half-width and radius 7.
+		ThreatType.BARREL: return 223.0 / speed # 240 px separation minus 8 px Player half-width and radius 9.
 		ThreatType.SHURIKEN: return 228.0 / speed # Radius 4; speed already includes the projectile multiplier.
 	return 0.0
 

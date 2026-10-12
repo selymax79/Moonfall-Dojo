@@ -52,7 +52,7 @@ Distances are logical pixels; times are seconds and do not scale with Level.
 | Turn | 0.10 across a full reversal | Reversible, not committed; repeated direction does not restart it. An action during a turn snaps to target facing. |
 | Punch | 0.06 extension + 0.08 active + 0.16 recovery = 0.30 | Active rectangle extends 6..25.5 px toward facing, y=-25..-21 relative to feet. |
 | Kick | 0.08 extension + 0.16 active + 0.16 recovery = 0.40 | Raised active rectangle extends 14..36 px toward facing, y=-33..-27. |
-| Jump | 0.75 | Deterministic parabola, 55 px apex; hurtbox follows the visual vertically. |
+| Jump | 0.82 | Deterministic parabola, 55 px apex; hurtbox follows the visual vertically. |
 | Duck | 0.08 crouch + 0.35 low hold + 0.17 stand = 0.60 | Feet planted; body height scales to 45%; no indefinite hold. |
 
 Standing hurtbox is 16×40; fully ducked is 16×18. Turning does not squash this hurtbox.
@@ -133,9 +133,11 @@ and spatial overlap determine success. Both entry sides mirror the same mechanic
   at y=276..300, remaining low thereafter. Raised Kick passes above it; Punch overlaps.
   Telegraph/strike/recovery/retry are 0.35/0.20/0.25/0.40. Fist first reaches standing
   Player 0.08 into strike, at y=286..290; Duck remains vulnerable. Jump may spatially evade.
-- **Barrel → Jump.** Radius 7 (14×14), centre y=293; base speed. Standing/Duck collide.
+- **Barrel → Jump.** Radius 9 (18×18), centre y=291; base speed ×1.15. Standing/Duck collide.
   Punch/Kick do not destroy it. Complete horizontal passage awards a Dodge, then
   0.50 harmless roll + 0.40 cosmetic explosion; the effect cannot damage or score.
+  The 18 px drawn body matches the collider, with transparent padding in each 20 px atlas cell.
+  Jump retains its 55 px parabola and committed input, stretched only to 0.82 s (apex at 0.41 s).
 - **Shuriken → Duck.** Approximately 8×8, stable radius 4, centre y=270, speed ×1.25.
   Standing body overlaps; fully crouched head clears its bottom by 8 px. Artwork spins
   independently of collision. Punch/Kick do not destroy it; Jump can spatially evade.
@@ -145,9 +147,28 @@ and spatial overlap determine success. Both entry sides mirror the same mechanic
 ## Threat Speed
 
 `base_speed = min(60 + 5 * (level - 1), 100)` px/s: Level 1=60, Level 5=80, Level 9+=100.
-Assassins and Barrel use base speed; Shuriken uses `base_speed * 1.25` (75/100/125).
+Assassins use base speed; Barrel uses `base_speed * 1.15` (69/92/115);
+Shuriken uses `base_speed * 1.25` (75/100/125).
 Final speed is assigned at spawn; existing threats never speed up retroactively.
 Assassins begin their moving telegraph farther out at higher speeds, preserving its 0.35 s.
+
+### Barrel / Jump tuning verification
+
+Godot collision stepping at 1 ms and fresh-input sampling at the normal 60 Hz tick give:
+
+| Level | Barrel speed | Successful input window (1 ms stepping) | 60 Hz earliest-to-latest successful press span |
+| --- | --- | --- | --- |
+| 1 | 69 px/s | approximately 246–247 ms | 233 ms (15 successful press ticks) |
+| 5 | 92 px/s | approximately 366 ms | 350 ms (22 successful press ticks) |
+| 9+ | 115 px/s | approximately 437 ms | 417 ms (26 successful press ticks) |
+
+Both sides and both facings have identical successful ticks at 60 Hz; Level 1's sub-tick
+boundary differs by 1 ms under fine stepping due to accumulated floating-point positions.
+Clearly early jumps land into the Barrel; late jumps collide before gaining clearance.
+The previous radius-7/base-speed/0.75 s setup measured approximately 195/318/391 ms.
+The larger/faster Barrel with unchanged 0.75 s Jump measured 185/305/376 ms; 0.82 s
+restores a little more opportunity than the original. A tested 0.85 s Jump gave 273/393/463 ms,
+so the smaller 0.82 s increase was chosen. No apex hold, gravity change or input buffering is added.
 
 ## Scoring / Progression
 
@@ -240,18 +261,19 @@ Standing first-contact lead times from either spawn (240 px from Player):
 | --- | --- | --- | --- | --- |
 | Red | 202/v + 0.09 | 3.457 s | 2.615 s | 2.110 s |
 | Blue | 210/v + 0.08 | 3.580 s | 2.705 s | 2.180 s |
-| Barrel | 225/v | 3.750 s | 2.813 s | 2.250 s |
+| Barrel | 223/v | 3.232 s | 2.424 s | 1.939 s |
 | Shuriken | 228/v | 3.040 s | 2.280 s | 1.824 s |
 
 Assassin travel already includes the 0.35 s moving telegraph; weapon reach adds 0.09/0.08 s.
-Hazard distances subtract Player half-width 8 and radius 7/4. Shuriken uses ×1.25 speed.
+Hazard distances subtract Player half-width 8 and radius 9/4. Barrel uses ×1.15 speed;
+Shuriken uses ×1.25 speed.
 Higher Levels retain capped lead times; neither side changes them.
 
 For each actor, let `L = spawn_time + contact_lead` and `D = intended response duration`.
 Reserve **[L − D, L + D]**, including startup and recovery. This is a conservative planning
 interval containing a successful response, not an input window where every press succeeds.
 Examples of successful planned presses: Red at strike start −0.08; Blue at strike start
-−0.06; Barrel when centre arrival is 0.375 s away; Shuriken when centre arrival is 0.271 s away.
+−0.06; Barrel when centre arrival is 0.410 s away; Shuriken when centre arrival is 0.271 s away.
 These place the attack hold, Jump apex or Duck clearance over the relevant encounter.
 
 Before spawning the pending actor, require:
@@ -263,13 +285,12 @@ no actual turn; reserving the opposite-side cost avoids relying on future facing
 The 100 ms margin covers fixed-tick rounding and leaves recovery breathing room. The
 current action uses its actual remaining duration, not another complete action duration.
 
-At the speed cap, the shortest reserved approach lead is Shuriken's 1.224 s. Even after
-the longest fresh commitment (0.75), it leaves 0.374 s beyond the 0.10 margin. Thus zero
+At the speed cap, the shortest reserved approach lead is Barrel's approximately 1.119 s.
+Even after the longest fresh commitment (0.82), it leaves 0.199 s beyond the 0.10 margin. Thus zero
 post-resolution delay would still allow a valid response; the positive gap bands preserve
 readability. For unresolved pairs, every ordered type/side pair can be delayed until its
-reservations separate; no forbidden pairs or rerolls are necessary. At capped speeds,
-the model permits at least approximately 0.63 s of approach overlap before the first
-threat's expected resolution (before fixed-tick rounding).
+reservations separate; no forbidden pairs or rerolls are necessary. Pair verification covers
+all 384 ordered type/side/Level cases, including overlap at eligible Levels.
 
 Overlap is mathematically possible at Level 1 too. Level 6 is a pacing unlock, validated
 at base speed 85, not a claim that lower Levels are geometrically unsafe. Every spawn
@@ -358,7 +379,10 @@ new artwork. This preserves gameplay geometry while replacing the displayed pose
 - Blue: four compact run poses, crouch transition, low guard/attack poses and a distinct folded
   collapse. Its visible 4×4 fist and connected sleeve follow the actual low Fist transform.
   The raised Player kick continues to pass above Blue's existing low hurtbox.
-- Barrel: four wood-stave/steel-band roll frames driven by distance, followed by four stepped
+- Barrel: eight wood-stave/steel-band end-face frames cover a full rolling revolution, driven
+  by signed distance/radius: clockwise travelling right, anticlockwise travelling left.
+  An off-centre wooden plug rotates with the face; frame changes are symmetric between sides.
+  These are followed by four stepped
   stages of low wood fragments, hoop pieces and dust during the existing 0.40 s aftermath.
 - Shuriken: four bright steel spin frames, the existing departure/fall, and a three-step small
   floor spark during the existing 0.15 s settle. Collision remains an unrotated radius-4 circle.
