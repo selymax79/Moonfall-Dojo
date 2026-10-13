@@ -9,6 +9,11 @@ var menu_selection: int = 0
 var options_selection: int = 0
 var selected_start_level: int = 1
 var initials: String = ""
+var initial_choice: int = 0
+var initial_picker_active: bool = false
+const INITIAL_CHARACTERS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+# Session-only desktop test option; later platforms can use the same visibility API.
+@export var touch_controls_enabled: bool = false
 # Shared across fresh Main instances so saves load once and a failed write does not lose session data.
 var records
 var result_checked: bool = false
@@ -88,7 +93,8 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var run_stats = $HUD/RunStats
 @onready var title_overlay: Control = $HUD/TitleOverlay
 @onready var title_high_score: Label = $HUD/TitleOverlay/HighScoreLabel
-@onready var controls_overlay: Control = $HUD/ControlsOverlay
+@onready var controls_overlay = $HUD/ControlsOverlay
+@onready var touch_overlay = $HUD/TouchOverlay
 @onready var options_overlay: Control = $HUD/OptionsOverlay
 @onready var high_scores_overlay: Control = $HUD/HighScoresOverlay
 @onready var initials_overlay: Control = $HUD/InitialsOverlay
@@ -104,6 +110,14 @@ func _ready() -> void:
 	if records == null:
 		records = preload("res://scripts/run_records.gd").new()
 		records.load_records()
+	records.controls.apply()
+	controls_overlay.records = records
+	controls_overlay.overlay_enabled = touch_controls_enabled
+	controls_overlay.back_requested.connect(return_from_controls)
+	controls_overlay.feedback.connect(game_audio.play_ui)
+	controls_overlay.overlay_changed.connect(func(enabled: bool): touch_controls_enabled = enabled)
+	Input.joy_connection_changed.connect(controller_connection_changed)
+	player.died.connect(update_touch_controls)
 	selected_start_level = clampi(selected_start_level, 1, records.highest_level)
 	run_start_level = clampi(run_start_level, 1, records.highest_level)
 	recalculate_level()
@@ -128,6 +142,7 @@ func _ready() -> void:
 
 ## Visibility and selection have no effect on gameplay clocks or RNG.
 func update_menu() -> void:
+	update_touch_controls()
 	$Environment.set_active(game_state == GameState.RUN)
 	title_overlay.visible = game_state == GameState.TITLE
 	controls_overlay.visible = game_state == GameState.CONTROLS
@@ -154,12 +169,29 @@ func update_menu() -> void:
 	$HUD/InitialsOverlay/InitialsLabel.text = " ".join((initials + "___").substr(0, 3).split(""))
 	$HUD/OptionsOverlay/MusicVolume.text = ("> Music Volume  %d <" if options_selection == 0 else "Music Volume  %d") % records.music_volume
 	$HUD/OptionsOverlay/SFXVolume.text = ("> SFX Volume  %d <" if options_selection == 1 else "SFX Volume  %d") % records.sfx_volume
+	var accept_hint: String = records.controls.binding_text("menu_accept", "key") + " / " + records.controls.binding_text("menu_accept", "pad")
+	var cancel_hint: String = records.controls.binding_text("menu_back", "key") + " / " + records.controls.binding_text("menu_back", "pad")
+	$HUD/TitleOverlay/NavigationHint.text = "Directions to choose | %s to select" % accept_hint
+	$HUD/TitleOverlay/UnlockHint.text = "Highest unlocked: %d | Menu Left / Right adjusts Start Level" % records.highest_level
+	$HUD/OptionsOverlay/ReturnHint.text = "%s to return" % cancel_hint
+	$HUD/HighScoresOverlay/ReturnHint.text = "%s to return to Title" % cancel_hint
+	$HUD/InitialsOverlay/EntryHint.text = "Type A-Z / 0-9, or directions choose [%s]\nAccept adds / submits | Cancel erases" % INITIAL_CHARACTERS[initial_choice]
+	$HUD/GameOverOverlay/RestartHint.text = (accept_hint + " TO RESTART").to_upper()
+	$HUD/PauseOverlay/ResumeHint.text = (records.controls.binding_text("pause_game", "key") + " / " + records.controls.binding_text("pause_game", "pad") + " TO RESUME").to_upper()
+	controls_overlay.queue_redraw()
 
 
 ## Explicit destinations keep navigation separate from gameplay input and RNG.
+func return_from_controls() -> void:
+	game_state = GameState.TITLE
+	game_audio.play_ui("menu_confirm")
+
+
 func handle_menu_input(event: InputEvent) -> void:
 	if game_state == GameState.INITIALS_ENTRY:
 		handle_initials_input(event)
+	elif game_state == GameState.CONTROLS:
+		controls_overlay.handle_input(event)
 	elif game_state == GameState.OPTIONS:
 		handle_options_input(event)
 	elif game_state != GameState.TITLE:
@@ -211,13 +243,26 @@ func handle_options_input(event: InputEvent) -> void:
 			game_audio.play_ui("menu_move")
 
 
-## Direct typing is deliberately separate from action bindings (P enters a letter, never pause).
+## Direct typing remains available; menu directions activate the controller-friendly character picker.
+## Accept adds the chosen character, then submits three slots. Typing cancels picker mode.
 func handle_initials_input(event: InputEvent) -> void:
 	if event.is_action_pressed("menu_accept") and initials.length() == 3:
 		records.submit_score(initials, score)
 		game_audio.play_ui("high_score")
 		game_state = GameState.HIGH_SCORES
 		update_hud()
+	elif event.is_action_pressed("menu_accept") and initial_picker_active:
+		initials += INITIAL_CHARACTERS[initial_choice]
+		game_audio.play_ui("menu_move")
+	elif event.is_action_pressed("menu_back"):
+		initials = initials.left(maxi(0, initials.length() - 1))
+		if initials.is_empty(): initial_picker_active = false
+	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_right"):
+		initial_choice = (initial_choice + 1) % INITIAL_CHARACTERS.length()
+		initial_picker_active = true
+	elif event.is_action_pressed("menu_down") or event.is_action_pressed("menu_left"):
+		initial_choice = posmod(initial_choice - 1, INITIAL_CHARACTERS.length())
+		initial_picker_active = true
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_BACKSPACE or event.physical_keycode == KEY_BACKSPACE:
 			if not initials.is_empty():
@@ -228,6 +273,7 @@ func handle_initials_input(event: InputEvent) -> void:
 			var code: int = event.unicode
 			if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
 				initials += String.chr(code).to_upper()
+				initial_picker_active = false
 				game_audio.play_ui("menu_move")
 
 
@@ -297,6 +343,31 @@ func recalculate_level() -> void:
 
 ## Main always processes controls; Player and threat nodes are pausable and receive no paused input.
 ## Fresh presses prevent a held P key from repeatedly toggling pause.
+func _input(event: InputEvent) -> void:
+	if touch_overlay.handle_pointer(event):
+		get_viewport().set_input_as_handled()
+		return
+	# Filter at the viewport entry point, before either Main or Player sees physical repeats.
+	if not records.controls.fresh(event) or run_change_pending:
+		get_viewport().set_input_as_handled()
+
+
+func controller_connection_changed(device: int, _connected: bool) -> void:
+	records.controls.forget_device(device)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready():
+		touch_overlay.release_all()
+
+
+func update_touch_controls() -> void:
+	var mode := 0
+	if touch_controls_enabled and game_state == GameState.RUN and not run_change_pending:
+		mode = 2 if get_tree().paused or player.is_dead else 1
+	touch_overlay.set_mode(mode)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_echo():
 		return
@@ -331,6 +402,7 @@ func start_new_run() -> void:
 	if run_change_pending:
 		return
 	run_change_pending = true
+	update_touch_controls()
 	# Replace outside input dispatch; multiple presses in one frame cannot create duplicate runs.
 	replace_with_run.call_deferred()
 
@@ -341,6 +413,7 @@ func replace_with_run() -> void:
 	next_run.start_in_run = true
 	next_run.play_start_cue = true
 	next_run.records = records
+	next_run.touch_controls_enabled = touch_controls_enabled
 	next_run.run_start_level = run_start_level if game_state == GameState.RUN else selected_start_level
 	next_run.selected_start_level = next_run.run_start_level
 	if game_state != GameState.RUN:
@@ -363,6 +436,7 @@ func set_game_paused(paused: bool) -> void:
 	if changed:
 		game_audio.set_game_paused(paused)
 	pause_overlay.visible = paused
+	update_touch_controls()
 	# The two centred messages share space; restore Game Over immediately when resuming.
 	game_over_overlay.visible = not paused and player.is_dead and player.death_elapsed >= player.DEATH_DURATION
 

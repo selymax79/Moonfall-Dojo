@@ -1,4 +1,4 @@
-## Local arcade records and audio settings, shared across Main replacements without an autoload.
+## Local records, audio and controls, shared across Main replacements without an autoload.
 extends RefCounted
 
 const SAVE_PATH: String = "user://high_score.cfg"
@@ -10,6 +10,8 @@ var highest_level: int = 1
 var music_volume: int = DEFAULT_MUSIC_VOLUME
 var sfx_volume: int = DEFAULT_SFX_VOLUME
 var save_data := ConfigFile.new()
+var controls = preload("res://scripts/control_bindings.gd").new()
+var last_save_error: Error = OK
 
 
 func load_records() -> void:
@@ -18,9 +20,11 @@ func load_records() -> void:
 	music_volume = DEFAULT_MUSIC_VOLUME
 	sfx_volume = DEFAULT_SFX_VOLUME
 	save_data = ConfigFile.new()
+	controls.load_bindings(null)
 	if save_data.load(SAVE_PATH) != OK:
 		save_data = ConfigFile.new()
 		return
+	controls.load_bindings(save_data.get_value("controls", "bindings", {}))
 	var saved_entries: Variant = save_data.get_value("scores", "entries", [])
 	if saved_entries is Array:
 		for entry in saved_entries:
@@ -102,8 +106,14 @@ func unlock_level(earned_level: int) -> void:
 		save_records()
 
 
-## Preserve unrelated sections for future settings. Replace only after a complete write succeeds.
-## Failed writes leave the previous file intact and retain current records in memory for this session.
+## Confirmed binding edits use the same atomic save as records and audio.
+func save_controls() -> void:
+	save_data.set_value("controls", "bindings", controls.bindings)
+	save_records()
+
+
+## Preserve unrelated sections; replace only after a complete write succeeds.
+## Failed writes leave the previous file intact and retain settings in memory for this session.
 func save_records() -> void:
 	save_data.set_value("scores", "entries", entries)
 	save_data.set_value("progress", "highest_level", highest_level)
@@ -117,3 +127,4 @@ func save_records() -> void:
 		error = DirAccess.rename_absolute(temporary_path, SAVE_PATH)
 	if error != OK:
 		push_warning("Could not save run records to %s: %s" % [SAVE_PATH, error_string(error)])
+	last_save_error = error

@@ -17,14 +17,14 @@ Up/Down wraps through rows; Enter activates. On START LEVEL, Left/Right clamps t
 between 1 and the highest legitimate unlock; Enter also starts at that selected level.
 Selection defaults to 1 on each application launch and is retained when returning to Title.
 
-Controls lists Left/Right = Turn, Up = Jump, Down = Duck, Z = Punch, X = Kick,
-P = Pause/Resume, Enter = Select/Confirm/Restart and Esc = Back where available.
+Controls provides keyboard/controller remapping, restore defaults and a session-only desktop
+touch-overlay toggle; see the action-based input section below.
 Options provides Music Volume and SFX Volume (0–100, defaults 70/80). Up/Down selects;
 Left/Right adjusts by 5, applies immediately and saves actual changes. Zero mutes that bus;
 100 uses its reference gain. Enter/Esc returns to Title.
 High Scores shows ten ranked rows, with placeholders for empty slots rather than fake saved scores.
-Esc or Enter returns from these screens to Title with the selected row retained.
-Development keys are not shown as normal controls; remapping is not implemented.
+Menu Cancel returns from Controls; Menu Cancel or Accept returns from Options/High Scores.
+The title selection is retained. Development keys remain outside the remapping list.
 
 Main has explicit TITLE, CONTROLS, OPTIONS, HIGH_SCORES, INITIALS_ENTRY and RUN states.
 Non-qualifying Game Over remains a RUN substate; SceneTree pause is separate.
@@ -41,6 +41,84 @@ The shared records object survives replacement; old gameplay nodes are removed t
 The Title-to-run handover preserves gameplay RNG seed/state, making seeded sequences independent
 of menu time. In-run restarts retain fresh RNG behaviour. There is no live-run return-to-title
 control; qualifying Game Over reaches Title through the leaderboard.
+
+## Action-Based Input / Controls
+
+[control_bindings.gd](scripts/control_bindings.gd) owns the thirteen player-facing InputMap
+bindings. Main owns state gating and filters fresh physical presses before Player receives them.
+Player still consumes the same named events; no action clocks, collisions, scoring or scheduler
+rules change. Existing `menu_*` names are retained instead of adding parallel `ui_*` actions.
+`restart_run` mirrors Menu Accept. F2/F4 remain fixed development actions.
+
+| Action | Keyboard default | Controller default |
+| --- | --- | --- |
+| Turn Left / Right | Left / Right arrows | D-pad Left / Right or left stick horizontal |
+| Jump | Up arrow | North (Y / Triangle) |
+| Duck | Down arrow | West (X / Square) |
+| Punch | Z | South (A / Cross) |
+| Kick | X | East (B / Circle) |
+| Pause / Resume | P | Start / Menu |
+| Menu Up / Down / Left / Right | Arrow keys | D-pad or left stick |
+| Menu Accept / Game Over restart | Enter | South |
+| Menu Cancel | Escape | East |
+
+This controller layout follows the explicit combined 32/33 ticket, superseding the earlier
+proposed controller layout in AGENTS.md. All controllers use Godot's standard button mapping;
+physical controller testing remains outstanding. Left-stick actions press at 0.6 and rearm near
+neutral (below 0.3); repeated/jitter events cannot restart actions or repeat menu navigation.
+Buttons/keys also require release before a second press. The held-input latch survives scene
+replacement; disconnect clears that controller's latch. There is no key/stick auto-repeat or buffer.
+
+### Remapping and persistence
+
+[controls_menu.gd](scripts/controls_menu.gd) renders a seven-row scrolling Controls view.
+Menu Up/Down selects among thirteen action rows, Restore ALL defaults, Desktop touch overlay,
+and Back to Title. Menu Left/Right chooses the keyboard or gamepad column. Accept begins
+capture; the next valid key, gamepad button or left-stick direction confirms and saves it.
+Keyboard capture uses one physical key, without modifier chords. Capturing a pad binding replaces
+its previous pad alternatives; defaults restore D-pad-plus-stick directions together.
+
+Duplicates within gameplay or within menu actions are rejected with a named conflict message.
+Sharing across those contexts is intentional (for example South = Punch and Menu Accept).
+Esc and gamepad View/Back cancel capture and provide a recovery exit from Controls. They cannot
+be captured; Escape remains the default Menu Cancel. F2/F4 and standalone modifier keys cannot
+be rebound. Letter bindings used by menu actions take priority over direct typing in initials entry;
+the direction-driven picker remains usable. Restore defaults resets both device columns together.
+
+RunRecords stores `[controls] bindings` in the existing `user://high_score.cfg`, using the same
+complete temporary-write/rename path as scores, unlocks and audio. No new save path or autoload
+exists. The entire thirteen-action mapping is validated before applying: missing, malformed,
+unsupported or conflicting mappings safely restore defaults without discarding other records.
+Bindings load on startup, survive F2/restart via shared records, and reload on application launch.
+A failed save leaves changes active in memory, preserves the old file and reports failure on the
+Controls screen. Audio/record saves preserve the controls section.
+
+### Touch foundation and desktop testing
+
+[touch_overlay.tscn](scenes/touch_overlay.tscn) and [touch_overlay.gd](scripts/touch_overlay.gd)
+provide an understated translucent cross-pad, Punch/Kick buttons and a top-right Pause button.
+Left/Right emit `turn_left`/`turn_right`; Up emits `jump`; Down emits `duck`. There are no separate
+Jump/Duck buttons. Touch and desktop left-clicks emit ordinary `InputEventAction` events through
+Godot's input dispatch. They do not call Player or bypass committed-action gating.
+
+One finger owns the four-way pad at a time; additional fingers can press attacks. Sliding off
+releases a button and requires a new press; there is no diagonal, analogue movement or buffered
+slide action. Synthesised touch mouse events are ignored. Hide/state changes, death, pause,
+restart, focus loss and scene removal release owned touches. Paused/dead RUN shows only Pause;
+Title, menus and initials entry hide the overlay. Hidden controls cannot intercept input.
+The HUD at y=308..360 and central combat area remain clear. Outer approach lanes lie beneath
+some translucent controls, an explicit foundation tradeoff for later device playtesting.
+
+To test: Title → Controls → Desktop touch overlay → Accept to turn ON → Cancel → Start Game.
+Click the pad/attacks/Pause with the mouse. The toggle survives run restarts but defaults OFF
+on the next application launch. Main's exported `touch_controls_enabled` flag and
+`update_touch_controls()` provide the same integration point for later platform enablement.
+There is no automatic device detection and no touch menu navigation in this foundation.
+
+Combined Milestone 32/33 is implemented and verified with injected events and native 640×360
+renders; physical-controller and real-multitouch acceptance remain pending. Milestone 34 retains
+web export, browser audio, environment detection/enablement, touch-friendly menus, mobile/web
+scaling, device/browser testing and deployment. None of those release tasks is implemented here.
 
 ## Player
 
@@ -72,12 +150,16 @@ Barrel/Shuriken cosmetics may finish without rewards. Initials Entry hides/freez
 
 A qualifying score shows GAME OVER / NEW HIGH SCORE / ENTER INITIALS. Type three A–Z/0–9
 characters (letters become uppercase); Backspace removes the last character; Enter confirms
-only when all three slots are filled. Confirmation inserts/saves once and shows High Scores.
+only when all three slots are filled. Alternatively, menu directions activate a character picker;
+Up/Right advances through A-Z/0-9, Down/Left reverses, Accept adds the displayed character,
+and Cancel erases the last slot. Accept submits once three slots are filled. Direct typing exits
+picker mode, so Enter on fewer than three typed characters remains harmless. Confirmation
+inserts/saves once and shows High Scores.
 Enter/Esc then returns to Title, not directly to a new run. F2/F4 and Pause are disabled during
 entry; typing P remains a valid initial. Echoes and invalid characters are ignored.
 
 A non-qualifying score shows centred GAME OVER and **Enter to restart**.
-Enter (InputMap `restart_run`) accepts a fresh non-echo press only while this overlay is visible
+Menu Accept (also applied to the `restart_run` alias) accepts a fresh press only while this overlay is visible
 and unpaused. Enter during play, actions, death animation or pause is discarded, not buffered.
 Restart replaces Main with an unpaused run at its original starting level: counters/dev boost
 reset to zero, multiplier to x1.0, Player and scheduler reset, and old threats are removed.
@@ -225,7 +307,7 @@ boosted run. Real Level 3 boosted to effective Level 20 still unlocks only Level
 Previously unlocked higher starts may unlock further levels through normal progression.
 
 Writes occur on migration, confirmed leaderboard insertion, a new legitimate highest Level,
-or an actual audio-volume change. `[audio] music_volume` and `sfx_volume` share this file.
+an actual audio-volume change, or a confirmed binding/defaults change. `[audio] music_volume` and `sfx_volume` share this file.
 Finite numeric volume values clamp to 0–100 and round to integers; missing, non-numeric or
 non-finite values use 70/80. Settings saves preserve the leaderboard, unlock and unrelated fields.
 A temporary file is written completely before replacing the save. Failure warns without interrupting
@@ -658,5 +740,5 @@ all old audio before starting the fresh run. Gameplay audio callbacks never awar
 
 ## Not Yet Implemented
 
-Final character anatomy/combat-pose polish; full pause menu;
-remappable controls; controller bindings.
+Final character anatomy/combat-pose polish; full pause menu; web/mobile export and browser/device
+enablement. The implemented touch overlay is an input foundation, not a mobile release.

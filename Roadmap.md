@@ -39,9 +39,8 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 29 — Effects and Game Feel | COMPLETE for functional development following user review; preserve current timing and gameplay alignment. |
 | 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: late speed/gap tiers verified; user playtesting remains. |
 | 31 — Curated Encounter Patterns | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: short mirrored patterns verified through the existing fairness scheduler. |
-| 32 — Controller Support | NEXT; not started. |
-| 33 — Control Remapping | Future. |
-| 34 — Web / Mobile Version | Future: browser exports and touch support; not native mobile apps. |
+| 32/33 — Controller Support, Remapping and Mobile Input Foundation | IMPLEMENTED / HARDWARE ACCEPTANCE PENDING: injected-event, persistence, regression and rendered checks passed. |
+| 34 — Web / Mobile Version | Future: browser export, mobile/web enablement and testing; input foundation already implemented. |
 | 35 — Final Polish | Future: includes required character anatomy/combat-pose art debt. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
@@ -163,7 +162,7 @@ See [DESIGN_NOTES.md](DESIGN_NOTES.md#curated-patterns) for the library, exact d
 **Milestone 31 acceptance focus:** manually judge recognisable short combinations, readable
 side changes and the balance of authored rhythm against randomness. Automated intended-response
 inputs and captured-frame inspection are not user playtesting. Status remains IMPLEMENTED /
-MANUAL ACCEPTANCE PENDING. Milestone 32 is NEXT but has not begun.
+MANUAL ACCEPTANCE PENDING. The explicit combined 32/33 ticket proceeded separately; its input work does not imply acceptance of Milestone 31 rhythm.
 
 ## Required pre-release character-art polish
 
@@ -636,32 +635,38 @@ Do not introduce three simultaneous unresolved threats without separate design a
 
 ---
 
-## MILESTONE 32 — CONTROLLER SUPPORT
-Add controller input.
+## MILESTONE 32/33 — CONTROLLER SUPPORT, REMAPPING AND MOBILE INPUT FOUNDATION
 
-Requirements:
+Implemented through the explicit combined ticket; hardware/manual acceptance remains pending.
 
-- gameplay controls
-- menus
-- pause
-- initials entry where appropriate
-Do not break keyboard controls.
+- Shared named actions for keyboard, controller and touch gameplay.
+- Controller navigation for title, options, remapping, pause, Game Over and initials entry.
+- Keyboard keys and controller buttons/left-stick directions can be rebound for all thirteen
+  player-facing actions. Development F2/F4 remain fixed; restart follows Menu Accept.
+- Current binding display, capture/cancel, within-context conflict rejection and restore defaults.
+- Validated persistent bindings in the existing atomic ConfigFile save.
+- Hidden-by-default touch scene: four-way pad (Left/Right/Jump/Duck), Punch, Kick and Pause.
+- Desktop test toggle; state changes release touch presses. No separate mobile gameplay path.
+- Preserve gameplay timing, scoring, determinism, fairness margins and two-threat cap.
+
+Verification: 136 viewport-dispatched input/remap/touch/persistence checks plus a fresh-process
+binding reload passed. Regression runs passed 621 combat/scoring checks, 172 feature-flow checks,
+3,497 audio checks, 105,078 pause checks, 280,196 F4 checks, 2,411,086 scheduler checks
+(including 384 pair cases and 9,000 progressing encounters), 185,873 late-tier checks (320 pairs),
+and 92,017 pattern/menu checks with identical 200-encounter timelines after different menu waits and with the touch overlay
+hidden versus enabled.
+The prior Controls fixture was updated only for Accept now entering remap capture rather than
+returning to Title. Corrupt-save and deliberately blocked-write fixtures emit expected diagnostics; normal runs are clean.
+Native 640×360 captures were inspected for controller-driven Title selection, binding conflict
+capture, Controls/overlay toggle, gameplay overlay, pause, initials and Game Over. This is injected
+input and rendered review, not physical keyboard/controller or real-multitouch playtesting.
+
+Acceptance still required: physical controller mapping/feel, simultaneous real touches, and
+user judgement of overlay coverage/readability. Outer approach lanes are partly under translucent
+controls; central combat and HUD remain clear. Do not mark hardware acceptance complete from
+synthetic input alone. No Milestone 34 export, browser or deployment work was performed.
 
 ---
-
-## MILESTONE 33 — CONTROL REMAPPING
-Allow player-facing controls to be rebound.
-
-Preserve development keys separately.
-
-Provide conflict handling.
-
-Persist mappings.
-
-Keep the UI simple.
-
----
-
 ## MILESTONE 34 — WEB / MOBILE VERSION
 
 Make Moonfall Dojo playable as a Godot Web build on desktop and mobile browsers.
@@ -672,7 +677,7 @@ Requirements:
 
 - Godot Web export and desktop-browser play.
 - Mobile-browser landscape play with responsive 16:9 presentation.
-- Touch gameplay controls, touch-friendly menus and touch Pause.
+- Enable the 32/33 touch gameplay/Pause foundation for browser/mobile environments; add touch-friendly menus.
 - Browser audio-start/autoplay handling after user interaction.
 - Preserve desktop keyboard/controller behaviour, deterministic gameplay and fixed action timing.
 - Touch must obey committed actions and fresh-press rules, without introducing input buffering.
@@ -868,7 +873,10 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 32 — CONTROLLER SUPPORT — NEXT (not started)**
+**Milestone 32/33 — hardware/manual acceptance of the implemented input foundation.**
+
+The next implementation milestone after acceptance is **34 — Web / Mobile Version**; do not
+start export/deployment work as part of the input ticket.
 
 Milestone 26 is complete following automated verification and user manual listening acceptance.
 Milestone 27 is complete following automated verification and user manual acceptance of the
@@ -876,7 +884,8 @@ environment and HUD presentation. Combined Milestones 28 and 29 are complete for
 development following user review, with required pre-release character-art polish retained
 above and under Milestone 35. Milestone 30's verified tuning awaits user playtesting and acceptance.
 Milestone 31 is IMPLEMENTED / MANUAL ACCEPTANCE PENDING following its explicit implementation
-ticket and automated verification. Do not begin Milestone 32 as part of that ticket.
+ticket and automated verification. Combined 32/33 was explicitly authorised separately and is
+implemented with automated/rendered verification; its hardware acceptance remains pending.
 Milestone 34 Web / Mobile Version remains future scope only; native mobile application builds
 are not included.
 
