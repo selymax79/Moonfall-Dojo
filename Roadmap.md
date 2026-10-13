@@ -38,7 +38,9 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 28 — Character and Threat Art Pass | COMPLETE for functional development following user review; required pre-release character-art polish remains below. |
 | 29 — Effects and Game Feel | COMPLETE for functional development following user review; preserve current timing and gameplay alignment. |
 | 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: late speed/gap tiers verified; user playtesting remains. |
-| 31–33 | Future: Curated Encounter Patterns, Controller Support, Control Remapping. |
+| 31 — Curated Encounter Patterns | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: short mirrored patterns verified through the existing fairness scheduler. |
+| 32 — Controller Support | NEXT; not started. |
+| 33 — Control Remapping | Future. |
 | 34 — Web / Mobile Version | Future: browser exports and touch support; not native mobile apps. |
 | 35 — Final Polish | Future: includes required character anatomy/combat-pose art debt. |
 
@@ -130,7 +132,8 @@ retained. Milestone 30 tuning is implemented and awaiting manual acceptance as d
 
 Milestone 30 preserves Levels 1–14 and introduces base speeds 105 at Level 15 and 110 at Level 20,
 with minimum gaps 0.20 / 0.10 / 0.00 s at Levels 15 / 20 / 30. The two-threat cap, full response
-reservations, turn allowance, 100 ms safety margin and independent type/side RNG remain unchanged.
+reservations, turn allowance and 100 ms safety margin remain unchanged. Its baseline verification
+used independent type/side RNG; Milestone 31 adds curated selection without changing that curve.
 Verification passed 384 existing and 320 additional late-tier pairs, 9,000 progressing encounters,
 4,400 fixed-tier encounters, deterministic repeats, input-window sweeps, Pause/F4, higher starts,
 combat/scoring, persistence and menu/restart checks. Native 640×360 renders were inspected using
@@ -140,8 +143,27 @@ in [DESIGN_NOTES.md](DESIGN_NOTES.md#difficulty-shaping-and-measured-pacing).
 **Acceptance focus:** compare the large Level-5→6 overlap step and the modest Level-10→30 escalation.
 Level 30+ is intentionally bounded endurance, not an endlessly accelerating inevitable-death timer.
 Levels 40/50 match Level 30. The user must judge whether the approximately 9% response-rate increase
-and shorter recognition time feel sufficient. Milestone 31 stays future until acceptance; no curated
-patterns were implemented. Milestone 34 is roadmap-only Web/mobile-browser scope; it has not begun.
+and shorter recognition time feel sufficient. The explicit Milestone 31 ticket authorised curated
+patterns after the committed Milestone 30 baseline; this does not imply manual acceptance of 30.
+Milestone 34 is roadmap-only Web/mobile-browser scope; it has not begun.
+
+Milestone 31 adds eight mirrored two-step patterns using the existing pending slot. The selected
+step waits unchanged until the ordinary fairness gate admits it; there is no separate queue or
+pattern timing override. Starts unlock gradually from Level 4, with random threats remaining
+the majority. All 64 targeted pattern/orientation/tier cases, the original 384 pair cases,
+320 late-tier pairs, 9,000 progressing encounters and 16,000 fixed-tier encounters passed.
+The minimum 100 ms margin and two-unresolved cap were preserved; intended responses survived
+every run without starvation. Measured pattern share rose from 18.1% at Level 5 to 39.4% at
+Level 20+. All started patterns completed, averaging two steps. Independent RNG comparisons,
+same/different seed traces, pause/menu/cosmetic isolation, F4 boundary preservation, death/F2
+reset, combat/scoring and feature-flow/persistence checks passed. Native 640×360 captures were
+inspected at Levels 5/6/10/20, including delayed second steps and overlapping threats.
+See [DESIGN_NOTES.md](DESIGN_NOTES.md#curated-patterns) for the library, exact draw order and metrics.
+
+**Milestone 31 acceptance focus:** manually judge recognisable short combinations, readable
+side changes and the balance of authored rhythm against randomness. Automated intended-response
+inputs and captured-frame inspection are not user playtesting. Status remains IMPLEMENTED /
+MANUAL ACCEPTANCE PENDING. Milestone 32 is NEXT but has not begun.
 
 ## Required pre-release character-art polish
 
@@ -846,14 +868,16 @@ Do not abandon core completion to chase novelty.
 # CURRENT NEXT TARGET
 Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 30 — DIFFICULTY SHAPING — IMPLEMENTED / MANUAL ACCEPTANCE PENDING**
+**Milestone 32 — CONTROLLER SUPPORT — NEXT (not started)**
 
 Milestone 26 is complete following automated verification and user manual listening acceptance.
 Milestone 27 is complete following automated verification and user manual acceptance of the
 environment and HUD presentation. Combined Milestones 28 and 29 are complete for functional
 development following user review, with required pre-release character-art polish retained
 above and under Milestone 35. Milestone 30's verified tuning awaits user playtesting and acceptance.
-Milestone 31 remains future; do not begin it before acceptance. Milestone 34 Web / Mobile Version
-is newly defined future scope only; native mobile application builds are not included.
+Milestone 31 is IMPLEMENTED / MANUAL ACCEPTANCE PENDING following its explicit implementation
+ticket and automated verification. Do not begin Milestone 32 as part of that ticket.
+Milestone 34 Web / Mobile Version remains future scope only; native mobile application builds
+are not included.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

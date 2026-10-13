@@ -18,6 +18,18 @@ var play_start_cue: bool = false
 var run_change_pending: bool = false
 
 enum ThreatType { RED, BLUE, BARREL, SHURIKEN }
+# Two-step requests, always START side then OPPOSITE. Every unlocked pool balances all four types.
+# Order groups unlocks: first 2 at Level 4, first 4 at Level 7, all 8 at Level 10.
+const ENCOUNTER_PATTERNS = [
+	[ThreatType.RED, ThreatType.BLUE],
+	[ThreatType.BARREL, ThreatType.SHURIKEN],
+	[ThreatType.BLUE, ThreatType.RED],
+	[ThreatType.SHURIKEN, ThreatType.BARREL],
+	[ThreatType.RED, ThreatType.SHURIKEN],
+	[ThreatType.BLUE, ThreatType.BARREL],
+	[ThreatType.BARREL, ThreatType.RED],
+	[ThreatType.SHURIKEN, ThreatType.BLUE],
+]
 const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn"), preload("res://scenes/shuriken.tscn")]
 const THREAT_START_POSITION := Vector2(560, 300)
 const BASE_APPROACH_SPEED: float = 60.0
@@ -49,13 +61,18 @@ var run_start_level: int = 1
 # Run-local testing offset: changes difficulty/multiplier without inventing handled threats.
 var dev_level_boost: int = 0
 var level: int = 1
-# Each record contains actor, type, lethal_at, response_start and response_end (absolute run seconds).
+# Each record contains actor, type, absolute response times and pattern provenance for tracing.
 # Only unresolved gameplay belongs here; at most two records keeps ownership explicit.
 var active_threats: Array[Dictionary] = []
 var encounter_time: float = 0.0
 var next_spawn_at: float = 0.0
 var pending_type: int = -1
 var pending_side: int = 0
+# The current pending slot belongs to this step; advance only when it is actually admitted.
+# No parallel spawn queue: a pattern stores intent, while the existing fairness gate owns timing.
+var pattern_id: int = -1
+var pattern_step: int = 0
+var pattern_start_side: int = 0
 var encounter_rng := RandomNumberGenerator.new()
 
 @onready var player = $Player
@@ -350,10 +367,46 @@ func set_game_paused(paused: bool) -> void:
 	game_over_overlay.visible = not paused and player.is_dead and player.death_elapsed >= player.DEATH_DURATION
 
 
-## Exactly two draws per selection, including the pending choice: type, then side; never reroll waits.
+## Only an empty pending slot can select. Retries, F4, pause and menus never consume these draws.
+## Levels 1–3 retain type/side draws. Later: start roll, then pattern ID/orientation OR random type/side.
+## Continuing a selected pattern needs no RNG, even if its next step waits through a Level change.
 func select_pending_threat() -> void:
+	if pending_type >= 0:
+		return
+	if pattern_id >= 0 and pattern_step >= ENCOUNTER_PATTERNS[pattern_id].size():
+		clear_pattern()
+	if pattern_id < 0 and level >= 4:
+		if encounter_rng.randf() < get_pattern_start_chance():
+			pattern_id = encounter_rng.randi_range(0, get_pattern_pool_size() - 1)
+			pattern_start_side = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
+	if pattern_id >= 0:
+		pending_type = ENCOUNTER_PATTERNS[pattern_id][pattern_step]
+		pending_side = pattern_start_side if pattern_step == 0 else -pattern_start_side
+		return
 	pending_type = encounter_rng.randi_range(0, 3)
 	pending_side = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
+
+
+func get_pattern_start_chance() -> float:
+	if level < 4: return 0.0
+	if level < 6: return 0.10
+	if level < 10: return 0.15
+	if level < 15: return 0.20
+	if level < 20: return 0.22
+	return 0.25 # About 40% of threats are patterned; ordinary random threats remain the majority.
+
+
+func get_pattern_pool_size() -> int:
+	if level < 4: return 0
+	if level < 7: return 2
+	if level < 10: return 4
+	return ENCOUNTER_PATTERNS.size()
+
+
+func clear_pattern() -> void:
+	pattern_id = -1
+	pattern_step = 0
+	pattern_start_side = 0
 
 
 func get_spawn_gap() -> float:
@@ -440,8 +493,12 @@ func try_spawn_pending_threat() -> void:
 		else:
 			actor.landed.connect(game_audio.play_impact.bind("shuriken_impact"))
 	active_threats.append({"actor": actor, "type": pending_type, "lethal_at": lethal_at,
-		"response_start": lethal_at - duration, "response_end": lethal_at + duration})
+		"response_start": lethal_at - duration, "response_end": lethal_at + duration,
+		"pattern": pattern_id, "pattern_step": pattern_step if pattern_id >= 0 else -1})
 	next_spawn_at = encounter_time + get_spawn_gap()
+	if pattern_id >= 0:
+		pattern_step += 1
+	pending_type = -1 # Admission consumes the slot; only now may selection advance.
 	select_pending_threat()
 
 
@@ -459,6 +516,7 @@ func finish_threat(record: Dictionary) -> void:
 
 
 func cancel_pending_spawn() -> void:
+	clear_pattern()
 	pending_type = -1
 	pending_side = 0
 	next_spawn_at = -1.0

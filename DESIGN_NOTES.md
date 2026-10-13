@@ -244,12 +244,113 @@ freeze, surviving Assassins finish recovery, and resolved effects finish indepen
 ## Current Threat Selection
 
 Main owns a small `active_threats` array of unresolved records plus one selected pending
-type/side. Type is uniform over Red/Blue/Barrel/Shuriken; side is independent 50/50.
-RNG draw order is always **type, then side**, with no timing draw or anti-streak logic.
-The first choice is drawn when a fresh RUN instance enters the tree, never in menus;
-each spawn immediately draws the next pending choice.
-Unsafe choices wait unchanged: neither capacity nor fairness checks consume RNG draws.
+type/side. Ordinary random choices remain uniform over Red/Blue/Barrel/Shuriken with an
+independent 50/50 side. Short curated patterns occasionally replace two such choices.
+Patterns select **what** comes next; the existing scheduler decides **when** it is safe.
+The first choice is selected when a fresh RUN instance enters the tree, never in menus;
+each admission immediately fills the next pending slot. Unsafe choices wait unchanged.
 Seed before readiness for reproducibility (same seed and Player inputs give the same run).
+
+### Curated patterns
+
+`ENCOUNTER_PATTERNS` in [main.gd](scripts/main.gd) is a small array of two-threat definitions.
+Each starts on a randomly chosen side and ends on the opposite side. The only continuation
+state is definition index, next step index and starting side. There is no second pending queue.
+The step advances only on admission, not on a retry or an elapsed timer. Once both steps
+are admitted, the next selection returns to the ordinary probabilistic decision.
+
+| First eligible Level | Additional patterns (START side → OPPOSITE side) |
+| --- | --- |
+| 4 | Red → Blue; Barrel → Shuriken |
+| 7 | Blue → Red; Shuriken → Barrel |
+| 10 | Red → Shuriken; Blue → Barrel; Barrel → Red; Shuriken → Blue |
+
+Every unlocked pool balances all four types equally. Reversed response order gives a
+different recovery/turn rhythm; mirrored definitions share one entry. Identical-response
+pairs and three-step sequences are omitted to keep injections short and varied. Random
+type/side repeats and consecutive repeated patterns remain allowed; there is no anti-repeat rule.
+
+| Effective Level | Pattern-start chance at a free decision | Eligible definitions |
+| --- | --- | --- |
+| 1–3 | 0% | 0 |
+| 4–5 | 10% | 2 |
+| 6 | 15% | 2 |
+| 7–9 | 15% | 4 |
+| 10–14 | 20% | 8 |
+| 15–19 | 22% | 8 |
+| 20+ | 25% | 8 |
+
+A free decision means an empty pending slot with no remaining pattern step, not an empty
+screen. Continuation steps have no additional start roll. For two-step patterns, the expected
+patterned threat share is `2p / (1 + p)`: the 25% maximum produces about 40%, keeping random
+threats the majority. Higher starting Levels use their eligibility immediately.
+
+RNG order uses only `encounter_rng`: at Levels 1–3, **random type, side**; at Level 4+, a free
+decision draws **start probability**, followed by either **pattern ID, starting side** or
+**random type, side**. Continuing a pattern draws nothing. Calling selection with an occupied
+slot is a no-op. Fairness/capacity retries, pause, menu dwell and cosmetic RNG consume no
+encounter draws. Existing seeds change sequence from Level 4 onward by design, but remain
+reproducible with the new algorithm. F4 changes future selection eligibility/frequency only;
+already-selected steps retain their definition, orientation and type, even across unlock tiers.
+
+Every step passes the unchanged capacity, commitment, response reservation, turn allowance
+and 100 ms margin checks. Patterns cannot force overlap or bypass an expired Assassin forecast.
+Pause freezes continuation state. Death cancels it; restart replaces it with fresh run state.
+Pattern provenance on active records is diagnostic only: scoring, progression and unlocks
+use the same ordinary threat path. No pattern-specific timers, rewards or speed changes exist.
+
+### Pattern measurements and verification
+
+Godot runtime stepping at 60 Hz, seed 310031, 2,000 successfully handled threats at each fixed
+Level (16,000 total). Only the test fixture locks Level; production progression is unchanged.
+Each row completed every started pattern, with average length **2.0**, no deaths, skipped
+steps, cap violations or starvation under intended-response inputs.
+
+| Level | Starts / decisions | Pattern threat share | Completed patterns | Overlap time | Deferred pattern steps | Mean / max fairness delay |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0% | 0% | 0 | 0% | 0 | — |
+| 5 | 9.95% | 18.1% | 181 | 0% | 0 | — |
+| 6 | 14.94% | 26.0% | 260 | 55.5% | 182 | 0.192 / 0.750 s |
+| 8 | 14.94% | 26.0% | 260 | 57.8% | 227 | 0.317 / 0.767 s |
+| 10 | 20.41% | 33.9% | 339 | 57.5% | 394 | 0.380 / 0.900 s |
+| 15 | 22.03% | 36.1% | 361 | 57.1% | 494 | 0.506 / 1.167 s |
+| 20 | 24.53% | 39.4% | 394 | 53.9% | 603 | 0.620 / 1.367 s |
+| 30 | 24.53% | 39.4% | 394 | 55.7% | 671 | 0.645 / 1.467 s |
+
+Fairness delay counts eligible 60 Hz attempts blocked by reservations/current commitment,
+excluding minimum-gap and capacity waits. Mean is over deferred pattern steps only, including
+both first and second steps. Overlap is time with two unresolved threats, not cosmetic objects.
+Levels 20 and 30 have identical choices but different pacing. Larger delays are the safety gate
+working; patterns request order rather than promise a fixed interval.
+
+| Level | Red / Blue / Barrel / Shuriken counts | Left / Right | Adjacent same type / same side |
+| --- | --- | --- | --- |
+| 1 | 507 / 487 / 514 / 492 | 995 / 1005 | 505 / 1006 |
+| 5 | 493 / 542 / 495 / 470 | 982 / 1018 | 424 / 909 |
+| 6 | 504 / 546 / 489 / 461 | 982 / 1018 | 410 / 885 |
+| 8 | 504 / 546 / 489 / 461 | 982 / 1018 | 414 / 885 |
+| 10 | 513 / 525 / 487 / 475 | 981 / 1019 | 406 / 840 |
+| 15 | 516 / 515 / 489 / 480 | 985 / 1015 | 403 / 829 |
+| 20 | 510 / 515 / 494 / 481 | 985 / 1015 | 392 / 808 |
+| 30 | 510 / 515 / 494 / 481 | 985 / 1015 | 392 / 808 |
+
+Repeat counts use the 1,999 adjacent pairs in each row. Every enabled pattern appeared in
+both orientations. All 64 targeted pattern/orientation/tier cases survived, preserving the
+100 ms minimum margin. The original 384 pair cases, 320 additional late-tier pairs and
+9,000 progressing encounters also passed. Independent RNG-oracle comparisons and repeated
+seeds matched; different seeds differed. Pause, menu-duration and cosmetic-RNG comparisons
+preserved timelines. F4 boundary checks retained pending steps and active reservations;
+death and F2 cleared continuation state. Combat/scoring, feature-flow/persistence, Pause
+and F4 regression suites passed using isolated saves and injected input.
+
+Native 640×360 captures covered Levels 5/6/10/20: alternating Assassins, hazard-to-hazard,
+Assassin-to-hazard and Shuriken-to-Blue patterns. Threats remained readable, with grounded
+Barrel rolling, clear Shuriken height and visible separation during overlap. Targeted
+second steps waited 0 / 1.017 / 1.050 / 0.667 s for fairness respectively. User playtesting
+is still required to accept the rhythm; automated survival and still-frame inspection do
+not establish that subjective feel. Milestone 31 is implemented, manual acceptance pending.
+
+### Scheduler pacing
 
 | Level | Minimum gap after spawn or resolution | Maximum unresolved |
 | --- | --- | --- |
@@ -269,6 +370,8 @@ F2 recreates the scene and all scheduler state.
 
 ### Difficulty shaping and measured pacing
 
+The following measurements are the Milestone 30 baseline before curated selection; current
+pattern share, distributions and overlap are reported above. The speed/gap curve is unchanged.
 Levels 1–14 retain their established speed/gaps. Level 1 gives approximately 3.0–3.6 s
 from entry to the first standing contact, then about 4.37 s between intended responses.
 Levels 2–3 shorten travel with the existing +5 px/s steps. Level 5 averages 3.29 s per response.
@@ -289,7 +392,7 @@ Level 30+ is a bounded endurance tier: zero **additional** gap does not mean ins
 spawning. The response/recovery reservations, current commitment, 100 ms safety margin,
 Assassin turn allowance and two-threat cap still apply. Levels 40/50 intentionally match
 Level 30; no hidden inevitable-death ramp is added. This removes the Level-10 plateau,
-not every eventual difficulty ceiling. More authored variety remains future Milestone 31.
+not every eventual difficulty ceiling. Curated selection now adds short authored sequences.
 Whether the modest increase feels sufficiently hard is still awaiting manual acceptance.
 
 Measured at 60 Hz with seed 300030 and 400 successfully handled threats per fixed Level
@@ -319,7 +422,8 @@ There was no empty gameplay time after opening at these tiers. At Levels 1/3/5, 
 80.2/77.7/79.8% of time had one unresolved threat; the rest was breathing time. Later time with
 one unresolved is the complement of the two-threat percentage. The exact same seeded choices
 gave Red/Blue/Barrel/Shuriken counts 90/112/97/101 and Left/Right 208/192 at every tier.
-Selection remains independent uniform draws, not rebalancing, anti-streak logic or curated patterns.
+That baseline used independent uniform draws. Current selection mixes the balanced pattern
+library with ordinary random choices, without rebalancing or anti-streak logic.
 
 Practical successful input spans from full spawn, sampled at 60 Hz (earliest-to-latest successful
 press, facing correctly for Assassins; both sides tested):
@@ -555,4 +659,4 @@ all old audio before starting the fresh run. Gameplay audio callbacks never awar
 ## Not Yet Implemented
 
 Final character anatomy/combat-pose polish; full pause menu;
-remappable controls; controller bindings; advanced authored encounter patterns.
+remappable controls; controller bindings.
