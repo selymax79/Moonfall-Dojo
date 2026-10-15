@@ -4,8 +4,8 @@ extends Control
 const FONT = preload("res://art/ui/dojo_font.tres")
 const ACTIONS = ["turn_left", "turn_right", "jump", "duck", "punch", "kick", "pause_game"]
 const LABELS = ["<", ">", "^", "v", "PUNCH", "KICK", "PAUSE"]
-# Above the HUD and below the main approach corridor; centre combat stays uncovered.
-const RECTS = [Rect2(12, 246, 34, 28), Rect2(80, 246, 34, 28), Rect2(46, 218, 34, 28), Rect2(46, 274, 34, 28), Rect2(504, 252, 56, 46), Rect2(570, 252, 56, 46), Rect2(566, 12, 62, 28)]
+# Larger thumb targets above the HUD. Translucent outer-lane controls leave centre combat clear.
+const RECTS = [Rect2(12, 224, 42, 36), Rect2(96, 224, 42, 36), Rect2(54, 188, 42, 36), Rect2(54, 260, 42, 36), Rect2(488, 226, 70, 58), Rect2(566, 226, 70, 58), Rect2(566, 12, 62, 36)]
 var fingers: Dictionary = {}
 var mode := 0 # 0 hidden, 1 playing, 2 paused/dead (Pause only).
 
@@ -82,11 +82,11 @@ func handle_pointer(event: InputEvent) -> bool:
 func _draw() -> void:
 	if mode == 0: return
 	if mode == 1:
-		draw_rect(Rect2(46, 246, 34, 28), Color(0.025, 0.045, 0.07, 0.70))
+		draw_rect(Rect2(54, 224, 42, 36), Color(0.025, 0.045, 0.07, 0.55))
 	for index in RECTS.size():
 		if mode == 2 and index != 6: continue
 		var rect: Rect2 = RECTS[index]
-		draw_rect(rect, Color(0.25, 0.30, 0.36, 0.85) if index in fingers.values() else Color(0.025, 0.045, 0.07, 0.70))
+		draw_rect(rect, Color(0.25, 0.30, 0.36, 0.85) if index in fingers.values() else Color(0.025, 0.045, 0.07, 0.55))
 		draw_rect(rect, Color(0.8, 0.72, 0.52, 0.75), false, 1)
 		if index < 4:
 			var triangle := PackedVector2Array()
@@ -94,4 +94,4 @@ func _draw() -> void:
 				triangle.append(rect.get_center() + point.rotated([-PI / 2, PI / 2, 0, PI][index]))
 			draw_colored_polygon(triangle, Color(0.95, 0.85, 0.65))
 		else:
-			draw_string(FONT, rect.position + Vector2(0, rect.size.y / 2 + 4), LABELS[index], HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 8, Color(0.95, 0.85, 0.65))
+			draw_string(FONT, rect.position + Vector2(0, rect.size.y / 2 + 6), LABELS[index], HORIZONTAL_ALIGNMENT_CENTER, rect.size.x, 12, Color(0.95, 0.85, 0.65))

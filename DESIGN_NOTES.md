@@ -17,7 +17,7 @@ Up/Down wraps through rows; Enter activates. On START LEVEL, Left/Right clamps t
 between 1 and the highest legitimate unlock; Enter also starts at that selected level.
 Selection defaults to 1 on each application launch and is retained when returning to Title.
 
-Controls provides keyboard/controller remapping, restore defaults and a session-only desktop
+Controls provides keyboard/controller remapping, restore defaults and a session-only
 touch-overlay toggle; see the action-based input section below.
 Options provides Music Volume and SFX Volume (0–100, defaults 70/80). Up/Down selects;
 Left/Right adjusts by 5, applies immediately and saves actual changes. Zero mutes that bus;
@@ -72,7 +72,7 @@ replacement; disconnect clears that controller's latch. There is no key/stick au
 ### Remapping and persistence
 
 [controls_menu.gd](scripts/controls_menu.gd) renders a seven-row scrolling Controls view.
-Menu Up/Down selects among thirteen action rows, Restore ALL defaults, Desktop touch overlay,
+Menu Up/Down selects among thirteen action rows, Restore ALL defaults, Touch overlay,
 and Back to Title. Menu Left/Right chooses the keyboard or gamepad column. Accept begins
 capture; the next valid key, gamepad button or left-stick direction confirms and saves it.
 Keyboard capture uses one physical key, without modifier chords. Capturing a pad binding replaces
@@ -93,32 +93,81 @@ Bindings load on startup, survive F2/restart via shared records, and reload on a
 A failed save leaves changes active in memory, preserves the old file and reports failure on the
 Controls screen. Audio/record saves preserve the controls section.
 
-### Touch foundation and desktop testing
+### Shared touch controls and pointer menus
 
 [touch_overlay.tscn](scenes/touch_overlay.tscn) and [touch_overlay.gd](scripts/touch_overlay.gd)
-provide an understated translucent cross-pad, Punch/Kick buttons and a top-right Pause button.
-Left/Right emit `turn_left`/`turn_right`; Up emits `jump`; Down emits `duck`. There are no separate
-Jump/Duck buttons. Touch and desktop left-clicks emit ordinary `InputEventAction` events through
-Godot's input dispatch. They do not call Player or bypass committed-action gating.
+provide a translucent four-way pad, Punch/Kick and Pause. Left/Right turn; Up jumps; Down ducks.
+There are no separate Jump/Duck buttons. Every gameplay button emits the same named
+InputEventAction used by keyboard/controller and obeys Player's existing committed-action rules.
+The pad targets are 42×36 logical pixels, attacks 70×58, and Pause 62×36; labels are larger.
+The HUD at y=308..360 and central combat stay clear. Translucent controls still cover parts of
+outer approach lanes; real-device thumb comfort and readability remain acceptance items.
 
-One finger owns the four-way pad at a time; additional fingers can press attacks. Sliding off
-releases a button and requires a new press; there is no diagonal, analogue movement or buffered
-slide action. Synthesised touch mouse events are ignored. Hide/state changes, death, pause,
-restart, focus loss and scene removal release owned touches. Paused/dead RUN shows only Pause;
-Title, menus and initials entry hide the overlay. Hidden controls cannot intercept input.
-The HUD at y=308..360 and central combat area remain clear. Outer approach lanes lie beneath
-some translucent controls, an explicit foundation tradeoff for later device playtesting.
+One finger owns the pad; another can attack. Duplicate owners and synthetic mouse events cannot
+repeat a press. Sliding out releases without selecting a new action. Hide/state changes, death,
+pause, restart, focus loss and scene removal release owned touches. Paused/dead RUN shows only
+Pause. Menus use direct targets instead of the gameplay pad.
 
-To test: Title → Controls → Desktop touch overlay → Accept to turn ON → Cancel → Start Game.
-Click the pad/attacks/Pause with the mouse. The toggle survives run restarts but defaults OFF
-on the next application launch. Main's exported `touch_controls_enabled` flag and
-`update_touch_controls()` provide the same integration point for later platform enablement.
-There is no automatic device detection and no touch menu navigation in this foundation.
+[menu_pointer.gd](scripts/menu_pointer.gd) adds hit areas to the existing state handlers in
+[main.gd](scripts/main.gd): title rows, Start Level arrows, volume arrows, Back, Controls cells
+and paging/capture cancellation, initials Previous/Next/Add/Erase/Save, Resume and Game Over
+restart. It owns pointer gestures, not menu state or a second menu implementation. A tap activates
+on release inside its original target; cancellation/drag-out is inert. The initial title hit areas
+refresh after container layout. Unclaimed physical pointer events are consumed before menu
+navigation so synthetic mouse/move events cannot cancel a pending touch. Keyboard/controller
+navigation still uses the same handlers. The full pause-menu expansion remains unimplemented.
 
-Combined Milestone 32/33 is implemented and verified with injected events and native 640×360
-renders; physical-controller and real-multitouch acceptance remain pending. Milestone 34 retains
-web export, browser audio, environment detection/enablement, touch-friendly menus, mobile/web
-scaling, device/browser testing and deployment. None of those release tasks is implemented here.
+The Controls toggle survives run replacement but is session-only. Native desktop and desktop
+browsers without touch default OFF; touch browsers default ON. Remapped physical keys/buttons do
+not change the overlay's semantic actions. There is no touch-layout editor.
+
+### Web export, lifecycle and storage
+
+Web/mobile is **another export target of this same Godot project, not a fork**. No gameplay,
+Player, threat, scheduler, menu-state, balance, animation or audio asset code is duplicated.
+Milestone 35 changes automatically affect native and Web through those shared files. The
+standing rule is in [AGENTS.md](AGENTS.md#one-shared-codebase--standing-rule).
+
+[export_presets.cfg](export_presets.cfg) uses the existing main scene, Godot 4.7.2 Compatibility
+renderer/WebGL 2, single-threaded WebAssembly, no GDExtensions and all runtime resources.
+Tools, documentation, Web source files and build output are excluded. The default Godot loader
+is retained with dark background/pixelated-canvas CSS and a tiny directory-URL normalisation
+for the built-in PWA cache. No custom launcher or production hosting is introduced.
+
+[web_platform.gd](scripts/web_platform.gd) is the small browser-only adapter. Under the Web
+feature, it combines Godot's mobile feature/touchscreen capability with navigator.maxTouchPoints.
+No user-agent string or gameplay branch selects a different game. It owns browser resize,
+focus and visibility listeners plus one HTML orientation notice; scene removal detaches them
+and releases the JavaScript callback references.
+
+The logical scene remains 640×360, centred in the largest 16:9 area with fractional scaling,
+letter/pillarboxing and nearest-neighbour filtering. Native layout is unchanged. Web rendering
+follows the display refresh rate; shared 60 Hz physics and all combat/action timings are
+unchanged. An engine FPS cap was rejected after a controlled test showed increased browser
+CPU use. Touch portrait displays a large rotate notice outside the
+canvas and blocks game input. Landscape is also requested by the manifest, but API enforcement
+is not assumed. Rotation, tab hiding or focus loss releases touches and pauses RUN; returning
+requires explicit Resume. Menu audio also suspends while unavailable. No elapsed background
+time advances the shared simulation on return.
+
+[game_audio.gd](scripts/game_audio.gd) retains its nine fixed voices. Web queues only the requested
+music name until the first key/button/tap/click, then activates once; Godot handles the underlying
+AudioContext permission. Repeated activation is inert. Main carries the activation flag across
+scene replacement, and old voices stop normally. Native audio starts as before. Focus suspension
+uses existing stream-pause behaviour, including title/menu music, without creating extra tracks.
+
+[run_records.gd](scripts/run_records.gd) is unchanged. ConfigFile temporary-write/rename still
+saves scores, legitimate unlocks, volumes and bindings to user://high_score.cfg. Godot's normal
+Web filesystem synchronises this to IndexedDB; there is no separate browser save format or
+storage shim. Browser data is origin-specific and separate from native saves. Clearing site data,
+private browsing, denied/evicted storage or abrupt termination can prevent persistence.
+
+Godot's built-in PWA manifest/service worker use standalone display, landscape orientation and
+three icons from [web/icon.svg](web/icon.svg). Cached files support offline use after an online
+visit under the worker's control; incomplete caches have the standard offline fallback. Old
+clients must close before an updated worker takes over. No forced mid-run update is implemented.
+See [export/hosting instructions](web/README.md) and the exact browser/native evidence and
+remaining device limitations in [WEB_VERIFICATION.md](tools/WEB_VERIFICATION.md).
 
 ## Player
 
@@ -740,5 +789,5 @@ all old audio before starting the fresh run. Gameplay audio callbacks never awar
 
 ## Not Yet Implemented
 
-Final character anatomy/combat-pose polish; full pause menu; web/mobile export and browser/device
-enablement. The implemented touch overlay is an input foundation, not a mobile release.
+Final character anatomy/combat-pose polish and the full pause menu. Web/mobile export is
+implemented; physical controller, Android and iPhone/Safari device acceptance remains pending.

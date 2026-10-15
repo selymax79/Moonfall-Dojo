@@ -219,7 +219,7 @@ func run() -> void:
 			m.player.advance_tick(1.0)
 	var mouse := InputEventMouseButton.new()
 	mouse.button_index = MOUSE_BUTTON_LEFT
-	mouse.position = Vector2(532, 275)
+	mouse.position = m.touch_overlay.RECTS[4].get_center()
 	mouse.pressed = true
 	dispatch(mouse)
 	check(m.player.current_action == 1, "desktop mouse activates overlay")
@@ -232,7 +232,7 @@ func run() -> void:
 	mouse.pressed = true
 	dispatch(mouse)
 	check(m.player.current_action == 0, "emulated mouse cannot duplicate touch")
-	touch(0, Vector2(28, 260))
+	touch(0, m.touch_overlay.RECTS[0].get_center())
 	var drag := InputEventScreenDrag.new()
 	drag.index = 0
 	drag.position = Vector2(320, 200)
@@ -243,14 +243,14 @@ func run() -> void:
 	axis(0.8)
 	check(m.player.target_direction == 1, "stick reverses")
 	axis(0)
-	touch(0, Vector2(28, 260))
-	touch(1, Vector2(62, 232))
+	touch(0, m.touch_overlay.RECTS[0].get_center())
+	touch(1, m.touch_overlay.RECTS[2].get_center())
 	check(m.player.target_direction == -1 and m.player.current_action == 0, "one pad direction at a time")
-	touch(2, Vector2(532, 275))
+	touch(2, m.touch_overlay.RECTS[4].get_center())
 	check(m.player.current_action == 1, "simultaneous pad and attack")
 	m._notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
 	check(m.touch_overlay.fingers.is_empty(), "focus loss releases touch")
-	touch(0, Vector2(28, 260))
+	touch(0, m.touch_overlay.RECTS[0].get_center())
 	pad(JOY_BUTTON_START)
 	check(paused and m.touch_overlay.fingers.is_empty() and m.touch_overlay.mode == 2, "pause releases touches")
 	var elapsed: float = m.player.action_elapsed
@@ -258,8 +258,8 @@ func run() -> void:
 	m._physics_process(1.0)
 	check(m.player.action_elapsed == elapsed, "pause freezes action")
 	await shot("paused_overlay")
-	touch(3, Vector2(590, 26))
-	touch(3, Vector2(590, 26), false)
+	touch(3, m.touch_overlay.RECTS[6].get_center())
+	touch(3, m.touch_overlay.RECTS[6].get_center(), false)
 	check(not paused, "touch Pause resumes")
 	m.player.advance_tick(1.0)
 	axis(-0.9)
@@ -272,7 +272,7 @@ func run() -> void:
 	await shot("gameplay_overlay")
 	m.touch_controls_enabled = false
 	m.update_touch_controls()
-	touch(0, Vector2(532, 275))
+	touch(0, m.touch_overlay.RECTS[4].get_center())
 	check(m.player.current_action == 0 and m.touch_overlay.fingers.is_empty(), "hidden touch inert")
 	m.touch_controls_enabled = true
 	m.update_touch_controls()

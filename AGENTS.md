@@ -16,6 +16,20 @@ Moonfall Dojo is a learning project for both Godot and Codex. Keep the architect
 
 This document defines the intended game, not permission to implement everything at once. Implement only the work explicitly requested.
 
+## One shared codebase — standing rule
+
+Moonfall Dojo has ONE gameplay and presentation codebase. Native desktop and Web/mobile
+browser builds are export targets of the same Godot project. They share scenes, Player/threat
+scripts, sprites, audio, balance, scheduler, scoring, persistence model, menus, HUD, named input
+actions, combat timings and encounter patterns. Do not fork or duplicate those systems by platform.
+Milestone 35 art, animation, balance, UI, audio, effects, menu, scheduler and pattern changes must
+automatically propagate to both exports.
+
+Platform exceptions must be small, isolated and documented, limited to environment detection,
+touch visibility, browser audio activation/lifecycle, browser storage behaviour and Web/export
+presentation. Landscape mobile-browser support is authorised; native Android/iOS apps remain
+outside scope. Test helpers may inspect the shared game in isolated builds, but must not ship.
+
 ## Roadmap alignment — standing instructions
 
 - Before development work, read this file, [DESIGN_NOTES.md](DESIGN_NOTES.md) and [Roadmap.md](Roadmap.md); inspect the current code, Git status and recent history.
@@ -217,7 +231,7 @@ The following are explicitly out of scope for V1:
 - Additional enemy types.
 - Additional obstacle types.
 - Story/campaign mode.
-- Mobile support.
+- Native Android/iOS applications (landscape mobile-browser Web support is authorised).
 
 ### Possible V2 idea — do not implement now
 

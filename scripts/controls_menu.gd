@@ -105,11 +105,12 @@ func _draw() -> void:
 			line(records.controls.binding_text(action, "key"), y, 16, 250)
 			line(records.controls.binding_text(action, "pad"), y, 16, 430)
 		else:
-			line(["Restore ALL defaults", "Desktop touch overlay: " + ("ON" if overlay_enabled else "OFF"), "Back to Title"][index - 13], y)
+			line(["Restore ALL defaults", "Touch overlay: " + ("ON" if overlay_enabled else "OFF"), "Back to Title"][index - 13], y)
 	line("%d / 16   EDIT: %s" % [selection + 1, "KEYBOARD" if device == "key" else "GAMEPAD"], 279, 14)
 	if listening:
 		line("WAITING: press a " + ("key" if device == "key" else "button / tilt stick"), 301, 14)
-		line("Esc / gamepad View cancels. " + message, 324, 14)
+		line(message if not message.is_empty() else "Esc / gamepad View cancels", 324, 14)
 	else:
 		line("Menu Up/Down: row   Left/Right: device   Accept: edit", 301, 14)
-		line(message if not message.is_empty() else "Cancel: back   Esc: recovery back   Dev F2/F4 fixed", 324, 14)
+		# Direct page/back buttons occupy the footer; keyboard/pad navigation remains unchanged.
+		line(message, 279, 14, 300)

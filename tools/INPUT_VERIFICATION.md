@@ -52,5 +52,5 @@ The roadmap records the observed check counts and remaining hardware acceptance.
 - Judge the translucent controls over outer threat-entry lanes at native resolution and
   normal window sizes. Central combat and the bottom HUD should remain clear.
 
-Real controller/multitouch hardware, browser/mobile scaling and subjective usability were
-not verified by the injected-event suite. Browser/mobile enablement remains Milestone 34.
+Real controller/multitouch hardware and subjective usability are not verified by the
+injected-event suite. Milestone 34 browser/export evidence is in [WEB_VERIFICATION.md](WEB_VERIFICATION.md).

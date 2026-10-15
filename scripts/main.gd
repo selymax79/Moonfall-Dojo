@@ -12,8 +12,10 @@ var initials: String = ""
 var initial_choice: int = 0
 var initial_picker_active: bool = false
 const INITIAL_CHARACTERS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-# Session-only desktop test option; later platforms can use the same visibility API.
+# Session-only preference; touch browsers enable it on first startup.
 @export var touch_controls_enabled: bool = false
+var platform_initialized: bool = false
+var audio_activated: bool = not OS.has_feature("web")
 # Shared across fresh Main instances so saves load once and a failed write does not lose session data.
 var records
 var result_checked: bool = false
@@ -98,6 +100,8 @@ var encounter_rng := RandomNumberGenerator.new()
 @onready var options_overlay: Control = $HUD/OptionsOverlay
 @onready var high_scores_overlay: Control = $HUD/HighScoresOverlay
 @onready var initials_overlay: Control = $HUD/InitialsOverlay
+@onready var web_platform = $WebPlatform
+@onready var menu_pointer = $HUD/MenuPointer
 
 
 ## Randomise before entering the tree so tests can override the seed before the first spawn.
@@ -107,6 +111,13 @@ func _init() -> void:
 
 ## Startup reads persistence but makes no gameplay RNG draws until a run is explicitly started.
 func _ready() -> void:
+	if not platform_initialized:
+		touch_controls_enabled = touch_controls_enabled or web_platform.touch_browser
+		platform_initialized = true
+	web_platform.suspend_requested.connect(suspend_browser)
+	web_platform.availability_changed.connect(game_audio.set_browser_suspended)
+	menu_pointer.main = self
+	game_audio.activated = audio_activated
 	if records == null:
 		records = preload("res://scripts/run_records.gd").new()
 		records.load_records()
@@ -138,6 +149,10 @@ func _ready() -> void:
 		player.hide()
 		game_audio.play_music("title")
 	update_menu()
+	# Containers finish laying out title rows after _ready; pointer targets use their final rectangles.
+	menu_pointer.refresh.call_deferred()
+	if web_platform.unavailable: suspend_browser()
+	game_audio.set_browser_suspended(web_platform.unavailable)
 
 
 ## Visibility and selection have no effect on gameplay clocks or RNG.
@@ -178,7 +193,15 @@ func update_menu() -> void:
 	$HUD/InitialsOverlay/EntryHint.text = "Type A-Z / 0-9, or directions choose [%s]\nAccept adds / submits | Cancel erases" % INITIAL_CHARACTERS[initial_choice]
 	$HUD/GameOverOverlay/RestartHint.text = (accept_hint + " TO RESTART").to_upper()
 	$HUD/PauseOverlay/ResumeHint.text = (records.controls.binding_text("pause_game", "key") + " / " + records.controls.binding_text("pause_game", "pad") + " TO RESUME").to_upper()
+	if touch_controls_enabled:
+		$HUD/GameOverOverlay/RestartHint.text = "TAP HERE TO RESTART"
+		$HUD/PauseOverlay/ResumeHint.text = "TAP HERE TO RESUME"
 	controls_overlay.queue_redraw()
+	# Pointer buttons replace hints only where they occupy the same space.
+	$HUD/OptionsOverlay/ReturnHint.hide()
+	$HUD/HighScoresOverlay/ReturnHint.hide()
+	$HUD/InitialsOverlay/EntryHint.hide()
+	menu_pointer.refresh()
 
 
 ## Explicit destinations keep navigation separate from gameplay input and RNG.
@@ -292,6 +315,7 @@ func show_run_result() -> void:
 		update_menu()
 	else:
 		game_over_overlay.show()
+		menu_pointer.refresh()
 
 
 ## Presentation only: fixed status slots, eight-digit minimum scores, no truncation of larger values.
@@ -344,7 +368,21 @@ func recalculate_level() -> void:
 ## Main always processes controls; Player and threat nodes are pausable and receive no paused input.
 ## Fresh presses prevent a held P key from repeatedly toggling pause.
 func _input(event: InputEvent) -> void:
+	if web_platform.portrait:
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_pressed() and not event.is_echo() and (event is InputEventKey or event is InputEventJoypadButton or event is InputEventScreenTouch or event is InputEventMouseButton):
+		audio_activated = true
+		game_audio.activate()
+	if menu_pointer.handle_pointer(event):
+		get_viewport().set_input_as_handled()
+		return
 	if touch_overlay.handle_pointer(event):
+		get_viewport().set_input_as_handled()
+		return
+	# Godot can synthesize mouse events from a touch. Only the pointer adapters own these;
+	# forwarding an unrelated move/release into menu refresh would cancel the original tap.
+	if event is InputEventScreenTouch or event is InputEventScreenDrag or event is InputEventMouseButton or event is InputEventMouseMotion:
 		get_viewport().set_input_as_handled()
 		return
 	# Filter at the viewport entry point, before either Main or Player sees physical repeats.
@@ -359,6 +397,17 @@ func controller_connection_changed(device: int, _connected: bool) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready():
 		touch_overlay.release_all()
+		menu_pointer.held.clear()
+		if OS.has_feature("web"): suspend_browser()
+
+
+## Browser suspension never catches up gameplay on return. Resume is an explicit player action.
+func suspend_browser() -> void:
+	if not is_node_ready(): return
+	touch_overlay.release_all()
+	menu_pointer.held.clear()
+	records.controls.held.clear()
+	if game_state == GameState.RUN: set_game_paused(true)
 
 
 func update_touch_controls() -> void:
@@ -414,6 +463,8 @@ func replace_with_run() -> void:
 	next_run.play_start_cue = true
 	next_run.records = records
 	next_run.touch_controls_enabled = touch_controls_enabled
+	next_run.platform_initialized = platform_initialized
+	next_run.audio_activated = audio_activated
 	next_run.run_start_level = run_start_level if game_state == GameState.RUN else selected_start_level
 	next_run.selected_start_level = next_run.run_start_level
 	if game_state != GameState.RUN:
@@ -439,6 +490,7 @@ func set_game_paused(paused: bool) -> void:
 	update_touch_controls()
 	# The two centred messages share space; restore Game Over immediately when resuming.
 	game_over_overlay.visible = not paused and player.is_dead and player.death_elapsed >= player.DEATH_DURATION
+	menu_pointer.refresh()
 
 
 ## Only an empty pending slot can select. Retries, F4, pause and menus never consume these draws.

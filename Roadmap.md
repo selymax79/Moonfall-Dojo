@@ -40,8 +40,8 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: late speed/gap tiers verified; user playtesting remains. |
 | 31 — Curated Encounter Patterns | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: short mirrored patterns verified through the existing fairness scheduler. |
 | 32/33 — Controller Support, Remapping and Mobile Input Foundation | IMPLEMENTED / HARDWARE ACCEPTANCE PENDING: injected-event, persistence, regression and rendered checks passed. |
-| 34 — Web / Mobile Version | Future: browser export, mobile/web enablement and testing; input foundation already implemented. |
-| 35 — Final Polish | Future: includes required character anatomy/combat-pose art debt. |
+| 34 — Web / Mobile Version | IMPLEMENTED / DEVICE ACCEPTANCE PENDING: shared Web export, touch menus, browser lifecycle, persistence and PWA verified; real devices remain. |
+| 35 — Final Polish | NEXT: includes required character anatomy/combat-pose art debt; not started by Milestone 34. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -144,7 +144,7 @@ Level 30+ is intentionally bounded endurance, not an endlessly accelerating inev
 Levels 40/50 match Level 30. The user must judge whether the approximately 9% response-rate increase
 and shorter recognition time feel sufficient. The explicit Milestone 31 ticket authorised curated
 patterns after the committed Milestone 30 baseline; this does not imply manual acceptance of 30.
-Milestone 34 is roadmap-only Web/mobile-browser scope; it has not begun.
+Milestone 34 was subsequently explicitly authorised and implemented; it does not discharge the earlier manual/hardware acceptance items.
 
 Milestone 31 adds eight mirrored two-step patterns using the existing pending slot. The selected
 step waits unchanged until the ordinary fairness gate admits it; there is no separate queue or
@@ -664,14 +664,23 @@ input and rendered review, not physical keyboard/controller or real-multitouch p
 Acceptance still required: physical controller mapping/feel, simultaneous real touches, and
 user judgement of overlay coverage/readability. Outer approach lanes are partly under translucent
 controls; central combat and HUD remain clear. Do not mark hardware acceptance complete from
-synthetic input alone. No Milestone 34 export, browser or deployment work was performed.
+synthetic input alone. That input-foundation ticket did not include export/browser work; see Milestone 34 below.
 
 ---
 ## MILESTONE 34 — WEB / MOBILE VERSION
 
-Make Moonfall Dojo playable as a Godot Web build on desktop and mobile browsers.
+**IMPLEMENTED / DEVICE ACCEPTANCE PENDING.**
+
+Moonfall Dojo now has a Web export of the same project, with automatic touch visibility, direct
+shared-menu interaction, browser audio/lifecycle handling, landscape/portrait presentation and
+Godot PWA support. No gameplay or presentation codebase was forked. Native regression, served
+browser and emulated-touch evidence is recorded in [WEB_VERIFICATION.md](tools/WEB_VERIFICATION.md);
+[web/README.md](web/README.md) covers export/hosting. Real Android/iPhone/Safari and physical
+controller testing remains outstanding. Installation UI and real phone suspension/audio latency
+are device acceptance, not inferred from desktop emulation.
+
 This explicitly authorised browser/mobile scope extends the earlier desktop-only V1 scope;
-it does not authorise implementation before this milestone or native Android/iOS applications.
+it does not authorise native Android/iOS applications.
 
 Requirements:
 
@@ -687,7 +696,7 @@ Requirements:
 
 Verify controls, audio, scaling, pause/resume, gameplay fairness and persistence on supported
 browsers. Native Android/iOS builds remain outside this milestone unless separately requested.
-Do not implement this milestone during difficulty shaping.
+Milestone 35 is NEXT; it was not implemented in this task.
 
 ---
 
@@ -871,22 +880,16 @@ Do not abandon core completion to chase novelty.
 ---
 
 # CURRENT NEXT TARGET
-Unless repository state indicates it has already been completed, the next intended milestone is:
 
-**Milestone 32/33 — hardware/manual acceptance of the implemented input foundation.**
+**Milestone 35 — Final Polish** is the next implementation target. Do not mistake this for
+completion of outstanding acceptance: Milestones 30/31 still need their user playtesting,
+32/33 physical controller/touch acceptance remains, and 34 is IMPLEMENTED / DEVICE ACCEPTANCE
+PENDING. The explicit Milestone 34 ticket authorised Web work without declaring those earlier
+acceptance items complete.
 
-The next implementation milestone after acceptance is **34 — Web / Mobile Version**; do not
-start export/deployment work as part of the input ticket.
-
-Milestone 26 is complete following automated verification and user manual listening acceptance.
-Milestone 27 is complete following automated verification and user manual acceptance of the
-environment and HUD presentation. Combined Milestones 28 and 29 are complete for functional
-development following user review, with required pre-release character-art polish retained
-above and under Milestone 35. Milestone 30's verified tuning awaits user playtesting and acceptance.
-Milestone 31 is IMPLEMENTED / MANUAL ACCEPTANCE PENDING following its explicit implementation
-ticket and automated verification. Combined 32/33 was explicitly authorised separately and is
-implemented with automated/rendered verification; its hardware acceptance remains pending.
-Milestone 34 Web / Mobile Version remains future scope only; native mobile application builds
-are not included.
+Milestone 26 has automated verification and user listening acceptance; 27 has automated and
+user environment/HUD acceptance. Combined 28/29 are complete for functional development with
+the required character-art debt retained under 35. No Milestone 35 implementation or Git commit
+was performed as part of 34. Future polish must affect both exports through the one codebase.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

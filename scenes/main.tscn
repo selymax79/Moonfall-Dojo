@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="1_player"]
 [ext_resource type="Script" path="res://scripts/main.gd" id="3_main"]
@@ -10,10 +10,15 @@
 
 [ext_resource type="Script" path="res://scripts/controls_menu.gd" id="8_controls"]
 [ext_resource type="PackedScene" path="res://scenes/touch_overlay.tscn" id="9_touch"]
+[ext_resource type="Script" path="res://scripts/web_platform.gd" id="10_web"]
+[ext_resource type="Script" path="res://scripts/menu_pointer.gd" id="11_pointer"]
 
 [node name="Main" type="Node2D"]
 process_mode = 3
 script = ExtResource("3_main")
+
+[node name="WebPlatform" type="Node" parent="."]
+script = ExtResource("10_web")
 
 [node name="Environment" parent="." instance=ExtResource("5_environment")]
 
@@ -567,3 +572,9 @@ volume_db = -25.0
 bus = &"SFX"
 
 [node name="TouchOverlay" parent="HUD" instance=ExtResource("9_touch")]
+
+[node name="MenuPointer" type="Control" parent="HUD"]
+offset_right = 640.0
+offset_bottom = 360.0
+mouse_filter = 2
+script = ExtResource("11_pointer")

@@ -25,6 +25,9 @@ const CLIPS = {
 	"gameplay": preload("res://audio/music/gameplay.wav"),
 }
 var current_music: String = ""
+# Web waits for one real input gesture; the single music voice retains the requested track.
+var activated: bool = not OS.has_feature("web")
+var browser_suspended := false
 var death_started: bool = false
 var result_played: bool = false
 # A maximum of two unresolved hazards needs exactly two quiet looping voices.
@@ -51,6 +54,9 @@ func apply_volumes(music_volume: int, sfx_volume: int) -> void:
 
 ## Submenus keep the same stream/playhead; only entering a run or returning from death changes music.
 func play_music(track: String) -> void:
+	if not activated:
+		current_music = track
+		return
 	if current_music == track and music.playing:
 		return
 	if track == "title":
@@ -59,7 +65,13 @@ func play_music(track: String) -> void:
 	current_music = track
 	music.stream = CLIPS[track]
 	music.play()
-	music.stream_paused = get_tree().paused
+	music.stream_paused = get_tree().paused or browser_suspended
+
+
+func activate() -> void:
+	if activated: return
+	activated = true
+	if not current_music.is_empty(): play_music(current_music)
 
 func play_ui(cue: String) -> void:
 	_play($UI, cue)
@@ -130,8 +142,15 @@ func play_game_over() -> void:
 func set_game_paused(paused: bool) -> void:
 	for voice in get_children():
 		if voice != $UI:
-			voice.stream_paused = paused
+			voice.stream_paused = paused or browser_suspended
 	play_ui("pause")
+
+
+## Background menus also go silent; returning to a paused run never resumes its voices.
+func set_browser_suspended(suspended: bool) -> void:
+	browser_suspended = suspended
+	for voice in get_children():
+		voice.stream_paused = suspended or (get_tree().paused and voice != $UI)
 
 func stop_all() -> void:
 	for voice in get_children():
@@ -144,7 +163,8 @@ func _exit_tree() -> void:
 	stop_all()
 
 func _play(voice: AudioStreamPlayer, cue: String) -> void:
+	if not activated: return
 	voice.stop()
 	voice.stream = CLIPS[cue]
 	voice.play()
-	voice.stream_paused = get_tree().paused and voice != $UI
+	voice.stream_paused = browser_suspended or (get_tree().paused and voice != $UI)
