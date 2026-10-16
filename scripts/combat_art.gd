@@ -42,9 +42,22 @@ func update_pose() -> void:
 				actor.Action.NONE:
 					if absf(actor.turn_progress) < 0.8: frame = 2
 				actor.Action.PUNCH:
-					frame = 3 if time < 0.03 else (4 if time < actor.PUNCH_EXTENSION_DURATION else (5 if time < 0.14 else 6))
+					if time < actor.PUNCH_EXTENSION_DURATION:
+						frame = 3 if time < 0.03 else 4
+					elif time < actor.PUNCH_EXTENSION_DURATION + actor.PUNCH_HOLD_DURATION:
+						frame = 5
+					else:
+						# Retract through the extension pose, fold the elbow, then settle into guard.
+						var recovery: float = (time-actor.PUNCH_EXTENSION_DURATION-actor.PUNCH_HOLD_DURATION)/actor.PUNCH_RECOVERY_DURATION
+						frame = 4 if recovery < 0.25 else (6 if recovery < 0.75 else 1)
 				actor.Action.KICK:
-					frame = 7 if time < 0.04 else (8 if time < actor.KICK_EXTENSION_DURATION else (9 if time < 0.24 else 10))
+					if time < actor.KICK_EXTENSION_DURATION:
+						frame = 7 if time < 0.04 else 8
+					elif time < actor.KICK_EXTENSION_DURATION + actor.KICK_HOLD_DURATION:
+						frame = 9
+					else:
+						var recovery: float = (time-actor.KICK_EXTENSION_DURATION-actor.KICK_HOLD_DURATION)/actor.KICK_RECOVERY_DURATION
+						frame = 8 if recovery < 0.25 else (10 if recovery < 0.75 else 1)
 				actor.Action.JUMP:
 					# Keep authored pose phases aligned when the deterministic arc duration is tuned.
 					var progress: float = time / actor.JUMP_DURATION
@@ -115,14 +128,21 @@ func draw_blade() -> void:
 	draw_rect(Rect2(x-38,-24,24,1),Color("e5e4c9"))
 	draw_rect(Rect2(x-14,-26,2,6),Color("b79b62"))
 	draw_rect(Rect2(x-12,-24,6,3),Color("292c38"))
-	# A short bent sleeve joins the gripping hand to the shoulder through the draw-back.
-	draw_line(Vector2(-3,-26),Vector2(x-8,-23),Color("301827"),4,false)
+	# Shoulder, bent elbow and wrist follow the weapon without moving its collision parent.
+	var elbow := Vector2(lerpf(-10,9,clampf((x+4)/28.0,0,1)),-20)
+	draw_polyline(PackedVector2Array([Vector2(-3,-27),elbow,Vector2(x-9,-23)]),Color("080e1c"),6,false)
+	draw_polyline(PackedVector2Array([Vector2(-3,-27),elbow,Vector2(x-9,-23)]),Color("742a3b"),4,false)
+	draw_line(elbow,elbow.lerp(Vector2(x-9,-23),0.65).round(),Color("bb4050"),1,false)
 	draw_rect(Rect2(x-10,-24,3,3),Color("c29b78"))
 
 func draw_low_fist() -> void:
+	if actor.phase == actor.Phase.APPROACH: return
 	var at: Vector2 = actor.fist.position.round()
-	draw_line(Vector2(-6,at.y),at,Color("142842"),4,false)
-	draw_line(Vector2(-6,at.y-1),at+Vector2(0,-1),Color("367daf"),1,false)
+	var shoulder := Vector2(-2,-18 if frame == 15 else -15)
+	var elbow := Vector2(-7,at.y+1)
+	draw_polyline(PackedVector2Array([shoulder,elbow,at]),Color("080e1c"),6,false)
+	draw_polyline(PackedVector2Array([shoulder,elbow,at]),Color("204977"),4,false)
+	draw_line(elbow+Vector2(0,-1),elbow.lerp(at,0.7).round()+Vector2(0,-1),Color("367daf"),1,false)
 	draw_rect(Rect2(at-Vector2(2,2),Vector2(4,4)),Color("c29b78"))
 	draw_rect(Rect2(at-Vector2(2,2),Vector2(3,1)),Color("efd2a0"))
 

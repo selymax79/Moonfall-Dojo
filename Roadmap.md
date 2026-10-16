@@ -35,13 +35,13 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 25 — Controls / Options Shell | COMPLETE: keyboard navigation and input isolation verified. |
 | 26 — Audio Foundation | COMPLETE: automated integration verified and redesigned audio accepted through user listening. |
 | 27 — Environment Art Pass | COMPLETE: automated verification passed and environment/HUD presentation manually accepted by the user. |
-| 28 — Character and Threat Art Pass | COMPLETE for functional development following user review; required pre-release character-art polish remains below. |
+| 28 — Character and Threat Art Pass | COMPLETE; its deferred character-art polish was accepted in Milestone 35. |
 | 29 — Effects and Game Feel | COMPLETE for functional development following user review; preserve current timing and gameplay alignment. |
 | 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: late speed/gap tiers verified; user playtesting remains. |
 | 31 — Curated Encounter Patterns | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: short mirrored patterns verified through the existing fairness scheduler. |
 | 32/33 — Controller Support, Remapping and Mobile Input Foundation | IMPLEMENTED / HARDWARE ACCEPTANCE PENDING: injected-event, persistence, regression and rendered checks passed. |
 | 34 — Web / Mobile Version | IMPLEMENTED / DEVICE ACCEPTANCE PENDING: shared Web export, touch menus, browser lifecycle, persistence and PWA verified; real devices remain. |
-| 35 — Final Polish | NEXT: includes required character anatomy/combat-pose art debt; not started by Milestone 34. |
+| 35 — Final Polish | COMPLETE: owner manual acceptance received; current graphical/audio polish is accepted for the present release. |
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -166,19 +166,10 @@ MANUAL ACCEPTANCE PENDING. The explicit combined 32/33 ticket proceeded separate
 
 ## Required pre-release character-art polish
 
-**Functional acceptance is not final character-art approval. A substantial anatomy and combat-pose
-polish pass is required before release and belongs in Milestone 35 final polish.**
-
-- Current character sprites are acceptable placeholders for continued development: implemented
-  first-pass 16-bit combat art, not final character artwork.
-- Player punch/kick anatomy and poses are notably weak; limbs currently read too much like bent
-  sticks. Player martial-arts anatomy needs a substantial drawing and pose-quality pass.
-- Punch must read as a convincing low karate punch.
-- Kick must read as a convincing lean-back high martial-arts kick.
-- Limbs must have proper volume and joint anatomy rather than stick-like construction.
-- Red and Blue sprite anatomy and overall sprite quality must receive the same review.
-- Preserve current gameplay timings, hitboxes and animation-state alignment. Animation timing
-  and gameplay alignment are good; the debt concerns sprite drawing and pose quality, not timing.
+**Satisfied by Milestone 35 and owner manual acceptance.** The current sprites, animation,
+music and audio are good enough for the present release. Further refinement is optional
+future work, not a blocker or unfinished Milestone 35 work. Any later presentation pass
+must continue to preserve gameplay timings, hitboxes and animation-state alignment.
 
 This status is a checkpoint, not a substitute for inspecting the current checkout. Keep it
 and CURRENT NEXT TARGET aligned after verified completion. See [DESIGN_NOTES.md](DESIGN_NOTES.md)
@@ -696,18 +687,23 @@ Requirements:
 
 Verify controls, audio, scaling, pause/resume, gameplay fairness and persistence on supported
 browsers. Native Android/iOS builds remain outside this milestone unless separately requested.
-Milestone 35 is NEXT; it was not implemented in this task.
+Milestone 35's subsequent implementation and owner-acceptance status are recorded below.
 
 ---
 
 ## MILESTONE 35 — FINAL POLISH
-Required before release: complete the substantial
-[character anatomy and combat-pose polish](#required-pre-release-character-art-polish) above.
-Functional completion of Milestones 28/29 does not discharge this art debt. Review Player,
-Red and Blue artwork while preserving current gameplay timings, hitboxes and animation-state
-alignment; do not retune gameplay to compensate for drawing weaknesses.
+**COMPLETE — MANUALLY ACCEPTED.** The explicit presentation-only ticket delivered
+Player/Red/Blue atlas polish, attack recovery sequencing, connected enemy weapon arms,
+layered music, short synthetic vocal impacts and Face Up/Down/Left/Right wording.
+Gameplay scripts, scenes/collisions, scheduler, controls mapping, environment and Web/PWA
+configuration remain unchanged. Barrel/Shuriken artwork was reviewed and retained.
+See [POLISH_VERIFICATION.md](tools/POLISH_VERIFICATION.md) for verification and acceptance.
+The owner accepted the current graphical/audio polish for the present release and authorised
+closeout. Further sprite, animation, music and audio refinement is optional future work.
+Earlier physical-device acceptance remains separate. No additional pause-menu feature was
+authorised by this presentation-only ticket.
 
-Review:
+Original review areas (not an outstanding Milestone 35 checklist):
 
 - title presentation
 - menus
@@ -881,15 +877,12 @@ Do not abandon core completion to chase novelty.
 
 # CURRENT NEXT TARGET
 
-**Milestone 35 — Final Polish** is the next implementation target. Do not mistake this for
-completion of outstanding acceptance: Milestones 30/31 still need their user playtesting,
-32/33 physical controller/touch acceptance remains, and 34 is IMPLEMENTED / DEVICE ACCEPTANCE
-PENDING. The explicit Milestone 34 ticket authorised Web work without declaring those earlier
-acceptance items complete.
+**Milestone 35 is complete and manually accepted.** No further presentation work is required
+for its closeout. Additional visual/audio refinement is deferred to a possible future milestone;
+do not start it automatically. The accepted environment/HUD and mechanical baseline remain intact.
 
-Milestone 26 has automated verification and user listening acceptance; 27 has automated and
-user environment/HUD acceptance. Combined 28/29 are complete for functional development with
-the required character-art debt retained under 35. No Milestone 35 implementation or Git commit
-was performed as part of 34. Future polish must affect both exports through the one codebase.
+Earlier acceptance records remain separate: Milestones 30/31 retain their user-playtesting
+status, 32/33 retain physical controller/touch acceptance, and 34 remains IMPLEMENTED /
+DEVICE ACCEPTANCE PENDING. These records do not reopen the accepted Milestone 35 polish.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

@@ -1,15 +1,16 @@
-# Original dojo audio — listening acceptance pending
+# Original dojo audio — Milestone 35 accepted
 
 The 21 assets share one authored palette: low FM/membrane weight, midrange wood/body/string
 and brief high steel/noise. All sounds are original offline synthesis, without external samples
-or copied melodies. The sonic targets below describe design intent, not a claim of listening approval.
+or copied melodies. The current graphical/audio polish has owner manual acceptance for the present release.
 
 ## Regeneration and generator structure
 
 [generate_audio.gd](../tools/generate_audio.gd) has explicit Player, Assassin, hazard, UI and
 music recipes. They combine named physical layers: `make_fm_bass`, `make_taiko_hit`,
 `make_body_hit`, `make_metal_hit`, `make_wood_crack`, `make_air_slice`,
-`make_noise_burst` and `make_plucked_tone`.
+`make_noise_burst` and `make_plucked_tone`. Music also uses `make_dojo_string`, a filtered
+echo and `make_drone`; the three defeat/death clips add original `make_grunt` vocal synthesis.
 
 From the project root:
 
@@ -40,9 +41,12 @@ four bars; the second four bars restate the call and vary the ending. Deliberate
 room for combat. Harmonic support centres on D with Bb, A and F bass changes.
 
 - **Title:** eight bars at 92 BPM, ~20.87 s. Sparse bass pulses, longer dry plucks, restrained
-  low percussion and only two bell accents evoke anticipation before battle.
+  low percussion and only two bell accents evoke anticipation before battle. Quiet held
+  fifths and filtered string echoes connect the phrases; source peak is 0.44 to compensate
+  for the sustained layers, leaving measured average level close to the original.
 - **Gameplay:** the same eight-bar melody at 132 BPM, ~14.55 s. Shorter plucks leave room for
   denser syncopated bass, stronger low drums, woodblock accents and two brief low FM stabs.
+  Inharmonic string overtones, restrained held tones and two sparse high replies add depth.
   It is a different arrangement of the theme, not a pitch/speed-shifted recording.
 - **Level-up:** D–F–A–D, a rising expansion of the theme.
 - **Initials confirmation:** D–A–Bb–A–D, retaining the call's characteristic neighbour note.
@@ -61,11 +65,11 @@ Every name below is a WAV in the stated folder, with matching Godot import metad
 | `sfx/kick` | 210 ms | Cloth cut, 64 Hz membrane, 128 Hz body and sharp snap: heavier “WHUMP/KRAK”; independent recipe. |
 | `sfx/jump` | 150 ms | Quiet cloth/air movement and small wooden push-off, without a cartoon chirp. |
 | `sfx/duck` | 110 ms | Very quiet filtered cloth/foot scuff; peak 0.13. |
-| `sfx/player_death` | 390 ms | Hard body/noise hit, settling low membrane and brief semitone FM tension. |
+| `sfx/player_death` | 390 ms | Hard body/noise hit, low membrane and short open-vowel synthetic cry. |
 | `sfx/red_attack` | 185 ms | Steel transient, scrape noise and high air cut at the existing strike event. |
-| `sfx/red_defeated` | 250 ms | Body impact, two short sword clatters and a subdued floor contact. |
+| `sfx/red_defeated` | 250 ms | Body impact, short voiced grunt, sword clatters and subdued floor contact. |
 | `sfx/blue_attack` | 155 ms | Lower cloth/body whoosh, with no metal component. |
-| `sfx/blue_defeated` | 230 ms | Damped low body hit, membrane weight and soft cloth collapse. |
+| `sfx/blue_defeated` | 230 ms | Damped body hit, lower voiced grunt, membrane and soft cloth collapse. |
 | `sfx/barrel_roll` | 1.60 s loop | Seven uneven stave knocks/rattles and two quiet hoop contacts; no sustained rumble. |
 | `sfx/barrel_explosion` | 380 ms | Low thump, five staggered wood cracks, rapidly decaying blast, hoop and fragment contacts. |
 | `sfx/shuriken_flight` | 1.25 s loop | Six dry band-limited air cuts and three tiny fixed-pitch steel ticks; no pitch LFO/siren. |
@@ -95,7 +99,7 @@ Per-voice gains remain: Danger -5, Player -6, impacts -8, Music/System -10, UI -
 loops -25 dB. Settings remain Music 70 / SFX 80 by default; zero mutes, 100 is reference level.
 At these source peak ceilings, even a conservative simultaneous peak sum of all nine voices
 at 100/100 stays below full scale before import rounding. No bus or playback-gain changes
-are needed for numerical headroom; subjective masking still needs listening.
+are needed for numerical headroom; the current mix has owner listening acceptance.
 
 Spectral intent: music is mainly low/mid bass and percussion with sparse plucks; Red uses
 brief upper steel, Blue lower body, Punch mid snap, Kick low-mid weight, Shuriken light
@@ -103,14 +107,16 @@ air/metal and Barrel uneven low-mid wood. No stereo positioning was added: asset
 mono, preserving the accepted playback architecture.
 
 Death priority, exactly-once triggers, pause/resume, scene-owned restart cleanup and settings
-persistence remain as implemented. This pass changes asset timbre, arrangement and duration.
+persistence remain as implemented. This pass changes timbre and arrangement; all clip and
+loop durations remain unchanged.
 
-## Manual listening acceptance — required again
+## Manual listening acceptance — complete
 
-The previous integration was accepted by the user, but its sound design was rejected.
-Milestone 26 remains **MANUAL ACCEPTANCE PENDING** for these replacements; do not advance 27.
+The owner has accepted Milestone 35's current music and audio for the present release.
+Further refinement may happen in a later polish milestone but is not required for closeout.
+Grunts use short harmonic/formant envelopes, not human recordings.
 
-Listen in-game with normal audio output and the default settings, then at a higher Level:
+Reference criteria for any optional future audio review:
 
 - Shuriken should read as steel cutting air, never a UFO, laser or piercing whistle.
 - Barrel should roll as uneven wood and break with weight and multiple fragments, never a balloon pop.
@@ -121,4 +127,5 @@ Listen in-game with normal audio output and the default settings, then at a high
 - Confirm clean loop seams, pause/resume, death/Game Over, initials/Title and repeated restarts.
 
 Automated trigger, routing, persistence, peak and seam checks cannot establish physical
-recognisability, musical identity, fatigue or mix readability. Those remain listening judgements.
+recognisability, musical identity, fatigue or mix readability. Those are listening judgements;
+the owner's manual acceptance supplies that approval for this milestone.

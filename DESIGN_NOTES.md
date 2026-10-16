@@ -53,14 +53,14 @@ rules change. Existing `menu_*` names are retained instead of adding parallel `u
 | Action | Keyboard default | Controller default |
 | --- | --- | --- |
 | Turn Left / Right | Left / Right arrows | D-pad Left / Right or left stick horizontal |
-| Jump | Up arrow | North (Y / Triangle) |
-| Duck | Down arrow | West (X / Square) |
-| Punch | Z | South (A / Cross) |
-| Kick | X | East (B / Circle) |
+| Jump | Up arrow | Face Up (Y / Triangle) |
+| Duck | Down arrow | Face Left (X / Square) |
+| Punch | Z | Face Down (A / Cross) |
+| Kick | X | Face Right (B / Circle) |
 | Pause / Resume | P | Start / Menu |
 | Menu Up / Down / Left / Right | Arrow keys | D-pad or left stick |
-| Menu Accept / Game Over restart | Enter | South |
-| Menu Cancel | Escape | East |
+| Menu Accept / Game Over restart | Enter | Face Down |
+| Menu Cancel | Escape | Face Right |
 
 This controller layout follows the explicit combined 32/33 ticket, superseding the earlier
 proposed controller layout in AGENTS.md. All controllers use Godot's standard button mapping;
@@ -79,7 +79,7 @@ Keyboard capture uses one physical key, without modifier chords. Capturing a pad
 its previous pad alternatives; defaults restore D-pad-plus-stick directions together.
 
 Duplicates within gameplay or within menu actions are rejected with a named conflict message.
-Sharing across those contexts is intentional (for example South = Punch and Menu Accept).
+Sharing across those contexts is intentional (for example Face Down = Punch and Menu Accept).
 Esc and gamepad View/Back cancel capture and provide a recovery exit from Controls. They cannot
 be captured; Escape remains the default Menu Cancel. F2/F4 and standalone modifier keys cannot
 be rebound. Letter bindings used by menu actions take priority over direct typing in initials entry;
@@ -681,13 +681,13 @@ Milestone 27 is complete following automated verification and user manual accept
 
 ## Character Art / Combat Feedback
 
-The combined Milestone 28/29 pass implements first-pass 16-bit combat art, not final character
-artwork. These sprites are accepted as placeholders for continued functional development.
-Player punch/kick anatomy and poses remain weak, with limbs reading too much like bent sticks;
-Red/Blue anatomy and sprite quality also need review. Current animation timing and gameplay
-alignment are good. The required pre-release drawing/pose polish is recorded in
-[Roadmap.md](Roadmap.md#required-pre-release-character-art-polish), with gameplay timings,
-hitboxes and animation-state alignment to be preserved.
+Player, Red and Blue use polished 16-bit pose atlases with tapered cloth masses, shaped
+waists, planted feet and connected joints. Punch rotates the chest over its support leg;
+the high kick turns the pelvis into the raised leg. Recovery retracts through intermediate
+poses before returning to guard within the unchanged action duration. Red's sword arm and
+Blue's crouched striking arm are drawn from their existing weapon/fist transforms.
+The current art and animation are owner-accepted for the present release;
+gameplay geometry and timing remain the established baseline.
 
 The pass uses original, offline-authored pixel atlases with dark outlines,
 small colour ramps, hard highlights and held key poses. Player uses navy/slate and a muted gold
@@ -738,8 +738,7 @@ events retain the environment's separate RNG and original event timing, independ
 [build_combat_art.gd](tools/build_combat_art.gd) regenerates the 17 new PNGs deterministically.
 Each ninja atlas contains the common 32-pose authoring catalogue; runtime actors use only their
 relevant poses. No copied sprites, downloaded fonts, runtime IK or new manager is involved.
-Milestones 28 and 29 are complete for functional development following user manual review,
-with the character-art polish debt explicitly retained.
+The current character-art presentation is manually accepted; further refinement is optional.
 
 ## Audio Foundation
 
@@ -754,10 +753,16 @@ to Music; every other voice, including UI, routes to SFX. Both feed Master with 
 Per-voice gains keep danger/player accents above the quiet hazard loops and background music.
 Volume options change bus gain; they do not alter streams, timings or gameplay RNG.
 
-The 21 original placeholder WAVs use offline layers of damped steel, wood, cloth/air noise,
+The 21 original WAVs use offline layers of damped steel, wood, cloth/air noise,
 body impacts and FM bass/plucks. Title and gameplay share the D–A–Bb–A / F–E–D motif within
 a D/E/F/A/Bb vocabulary. Title is an eight-bar 92 BPM loop (~20.87 s); gameplay transforms
 the same theme at 132 BPM (~14.55 s) with tighter bass, taiko-like hits and wood accents.
+Restrained synthetic plucked-string harmonics, filtered echoes, quiet held fifths and two
+sparse high-string responses add depth without changing tempo or loop length. Title source
+gain compensates for its sustained layers. Enemy defeat and Player death include brief
+original formant-synthesised grunts/cry within the existing clip durations and peak ceilings.
+The remaining effects, runtime voices, routing and gains are unchanged. The current music,
+vocal timbres and mix have owner manual acceptance for the present release.
 Shuriken flight has dry air cuts and fixed-pitch steel ticks, with no pitch modulation;
 Barrel break-up layers a low thump, staggered wood cracks, short noise and hoop clatter.
 [audio/README.md](audio/README.md) documents assets, mix and regeneration
@@ -789,5 +794,7 @@ all old audio before starting the fresh run. Gameplay audio callbacks never awar
 
 ## Not Yet Implemented
 
-Final character anatomy/combat-pose polish and the full pause menu. Web/mobile export is
-implemented; physical controller, Android and iPhone/Safari device acceptance remains pending.
+The full pause menu remains unimplemented and was outside the explicit presentation-only
+Milestone 35 ticket. Character/audio polish is complete and manually accepted.
+Web/mobile export is implemented; physical controller, Android and iPhone/Safari device
+acceptance remains pending.

@@ -17,7 +17,7 @@ func _init() -> void:
 	write_ui()
 	write_music("music/title", 92.0, false)
 	write_music("music/gameplay", 132.0, true)
-	print("Generated 21 original layered FM/wood/steel assets; deterministic seed 260226.")
+	print("Generated 21 original FM/string/wood/steel/formant assets; deterministic seed 260226.")
 	quit()
 
 ## Punch is a dry mid-body snap. Kick has its own cloth, membrane and low-body recipe.
@@ -49,9 +49,8 @@ func write_player() -> void:
 	layer(death, make_body_hit(0.160, 145), 0.0, 0.9)
 	layer(death, make_noise_burst(0.050, 600, 3900), 0.0, 0.55)
 	layer(death, make_taiko_hit(0.270, 48), 0.006, 0.85)
-	# Short semitone tension above the falling membrane, not a descending jingle.
-	layer(death, make_fm_bass(0.230, 38), 0.025, 0.28)
-	layer(death, make_fm_bass(0.180, 39), 0.025, 0.16)
+	# One short open-vowel cry above the body impact; duration still ends before Game Over.
+	layer(death, make_grunt(0.305, 156, true), 0.020, 1.25)
 	save_wave("sfx/player_death", death, 0.55)
 
 func write_assassins() -> void:
@@ -66,6 +65,7 @@ func write_assassins() -> void:
 	layer(red_fall, make_metal_hit(0.085, 1150), 0.045, 0.36)
 	layer(red_fall, make_metal_hit(0.055, 860), 0.130, 0.14)
 	layer(red_fall, make_wood_crack(0.070, 175), 0.150, 0.18)
+	layer(red_fall, make_grunt(0.190, 139, false), 0.012, 1.05)
 	save_wave("sfx/red_defeated", red_fall, 0.52)
 
 	var blue := blank(0.155)
@@ -78,6 +78,7 @@ func write_assassins() -> void:
 	layer(blue_fall, make_taiko_hit(0.125, 78), 0.0, 0.5)
 	layer(blue_fall, make_noise_burst(0.042, 400, 2200), 0.0, 0.38)
 	layer(blue_fall, make_air_slice(0.080, 180, 800), 0.110, 0.18)
+	layer(blue_fall, make_grunt(0.175, 122, false), 0.010, 1.0)
 	save_wave("sfx/blue_defeated", blue_fall, 0.52)
 
 func write_hazards() -> void:
@@ -160,11 +161,13 @@ func write_music(path: String, bpm: float, urgent: bool) -> void:
 	for bar in range(8):
 		var start: float = bar * 4.0 * beat
 		for note in phrases[bar]:
-			layer(song, make_plucked_tone(beat * (0.7 if urgent else 1.25), note[1]),
-				start + note[0] * beat, 0.22 if urgent else 0.30, true)
+			var pluck := make_dojo_string(beat * (1.05 if urgent else 1.65), note[1])
+			layer(song, pluck, start + note[0] * beat, 0.22 if urgent else 0.28, true)
+			# A quiet, filtered answer gives the pluck room without a wash over combat cues.
+			layer(song, soften(pluck), start + (note[0]+0.375) * beat, 0.045, true)
 		var bass_beats: Array = [0.0, 0.75, 1.5, 2.0, 2.75, 3.5] if urgent else [0.0, 2.5]
 		for index in range(bass_beats.size()):
-			var accent: float = 0.58 if index == 0 else 0.42
+			var accent: float = 0.48 if index == 0 else 0.32
 			layer(song, make_fm_bass(beat * (0.45 if urgent else 1.1), roots[bar]),
 				start + bass_beats[index] * beat, accent, true)
 		layer(song, make_taiko_hit(0.260, 58), start, 0.68 if urgent else 0.40, true)
@@ -181,7 +184,68 @@ func write_music(path: String, bpm: float, urgent: bool) -> void:
 			layer(song, make_metal_hit(0.65, 1174.66), start, 0.065, true)
 		if urgent and bar in [3, 7]:
 			layer(song, make_fm_bass(0.160, 50), start + 3.5 * beat, 0.16, true)
-	save_wave(path, song, 0.50)
+		# Slow two-bar beds connect the sparse phrases. Their tails wrap through the loop seam.
+		if bar % 2 == 0:
+			layer(song, make_drone(beat*9.0, roots[bar]+12), start, 0.09 if urgent else 0.12, true)
+		# A single high string response in the second half, leaving the main motif recognisable.
+		if bar in [5,7]:
+			layer(song, make_dojo_string(beat*1.8, 81 if bar == 5 else 74), start+3.0*beat, 0.055, true)
+	# The title's sustained layers raise average energy; lower its ceiling to retain the old level.
+	save_wave(path, song, 0.50 if urgent else 0.44)
+
+## A few voiced harmonics shaped around vowel resonances suggest a sampled arcade grunt.
+## This is original offline synthesis, not a recording or a runtime voice system; no RNG draws.
+func make_grunt(duration: float, pitch: float, cry: bool) -> PackedFloat32Array:
+	var sound := blank(duration)
+	var phase := 0.0
+	for frame in range(sound.size()):
+		var t: float = float(frame)/RATE
+		var progress: float = t/duration
+		var fundamental: float = pitch*(1.08-0.27*progress)+2.0*sin(TAU*31*t)
+		phase += TAU*fundamental/RATE
+		var vowel := 0.0
+		var first: float = lerpf(760.0 if cry else 610.0, 460.0, progress)
+		for harmonic in range(1,25):
+			var frequency: float = fundamental*harmonic
+			var weight: float = 0.28*exp(-pow((frequency-first)/180.0,2))
+			weight += 0.16*exp(-pow((frequency-1120.0)/230.0,2))
+			weight += 0.045*exp(-pow((frequency-2450.0)/360.0,2))
+			vowel += sin(phase*harmonic)*weight
+		var breath: float = sin(phase*17.31)*sin(phase*9.77)*0.045
+		var shape: float = pow(sin(PI*progress),0.8)*minf(t/0.010,1.0)
+		sound[frame] = tanh((vowel+breath)*1.6)*shape*(1.0-0.38*progress)
+	return sound
+
+## Inharmonic pick/body over a stable string fundamental: restrained synthetic koto colour.
+func make_dojo_string(duration: float, note: int) -> PackedFloat32Array:
+	var sound := blank(duration)
+	for frame in range(sound.size()):
+		var t: float = float(frame)/RATE
+		var phase: float = TAU*hz(note)*t
+		var value: float = sin(phase)*exp(-t/(duration*0.4))
+		value += 0.45*sin(phase*2.003)*exp(-t/0.13)
+		value += 0.27*sin(phase*3.009)*exp(-t/0.055)
+		value += 0.13*sin(phase*5.021)*exp(-t/0.018)
+		sound[frame] = value*minf(t/0.0015,1.0)*clampf((duration-t)/0.012,0,1)
+	return sound
+
+func soften(source: PackedFloat32Array) -> PackedFloat32Array:
+	var sound := source.duplicate()
+	var previous := 0.0
+	for frame in range(sound.size()):
+		previous = lerpf(previous, sound[frame], 0.18)
+		sound[frame] = previous
+	return sound
+
+## Gentle attack/release and wrapped placement keep the held fifths seamless at file boundaries.
+func make_drone(duration: float, note: int) -> PackedFloat32Array:
+	var sound := blank(duration)
+	for frame in range(sound.size()):
+		var t: float = float(frame)/RATE
+		var fade: float = minf(t/0.7,1.0)*minf((duration-t)/0.8,1.0)
+		var phase: float = TAU*hz(note)*t
+		sound[frame] = (sin(phase)*0.65+sin(phase*1.5)*0.20+sin(phase*2)*0.10)*fade
+	return sound
 
 func blank(duration: float) -> PackedFloat32Array:
 	var samples := PackedFloat32Array()

@@ -54,59 +54,87 @@ func stroke(a: Vector2, b: Vector2, width: int, colour: Color) -> void:
 		var at := a.lerp(b,float(step)/count).round()
 		box(int(at.x)-floori(width/2.0),int(at.y)-floori(width/2.0),width,width,colour)
 
+## Tapered cloth masses replace constant-width sticks. These are offline raster shapes only.
+func segment(a: Vector2, b: Vector2, start_width: float, end_width: float, colour: Color) -> void:
+	var normal := (b-a).normalized().orthogonal()
+	poly([a+normal*start_width/2, b+normal*end_width/2,
+		b-normal*end_width/2, a-normal*start_width/2], colour)
+
 func limb(a: Vector2, joint: Vector2, end: Vector2, width: int, front: bool) -> void:
-	stroke(a,joint,width+2,INK)
-	stroke(joint,end,width+2,INK)
-	stroke(a,joint,width,ramp[1] if front else ramp[0])
-	stroke(joint,end,width,ramp[2] if front else ramp[1])
+	var leg: bool = width == 4
+	var upper: float = 6.0 if leg else 4.5
+	var lower: float = 4.5 if leg else 3.5
+	segment(a,joint,upper+2,lower+2,INK)
+	segment(joint,end,lower+2,4 if leg else 3.5,INK)
+	box(int(joint.x)-2,int(joint.y)-2,4,4,INK)
+	segment(a,joint,upper,lower,ramp[1] if front else ramp[0])
+	segment(joint,end,lower,2.5,ramp[1] if front else ramp[0])
+	box(int(joint.x)-1,int(joint.y)-1,3,3,ramp[1] if front else ramp[0])
+	# Short folds describe volume; continuous bright joint-to-joint lines read as metal rods.
 	if front:
-		stroke(a+Vector2(-1,-1),joint+Vector2(-1,-1),1,ramp[2])
-		box(int(joint.x)-1,int(joint.y)-1,3,2,ramp[3])
-	box(int(end.x)-2,int(end.y)-1,5,2,ramp[0])
+		segment(a.lerp(joint,0.20)+Vector2(-1,0),a.lerp(joint,0.65)+Vector2(-1,0),2,1,ramp[2])
+		stroke(joint.lerp(end,0.35),joint.lerp(end,0.65),1,ramp[2])
+		pixel(int(joint.x)-1,int(joint.y)-1,ramp[3])
+	if leg:
+		# Split-toe shoe stays grounded; the active kick has its own explicitly fitted sole below.
+		box(int(end.x)-2,int(end.y)-1,5,3,INK)
+		box(int(end.x)-1,int(end.y)-1,3,2,ramp[0])
+		pixel(int(end.x)+2,int(end.y)-1,ramp[2])
+	else:
+		box(int(end.x)-2,int(end.y)-2,4,4,INK)
+		box(int(end.x)-1,int(end.y)-1,3,2,SKIN if front else ramp[1])
 
 ## Each entry is a held key pose, not a skeleton played at runtime. Feet end at local y=-1.
 func ninja(frame: int, kind: int) -> void:
-	var hip := Vector2(-1,-15)
-	var shoulder := Vector2(0,-29)
+	var hip := Vector2(-1,-17)
+	var shoulder := Vector2(0,-28)
 	var head := Vector2(1,-35)
-	var knee_back := Vector2(-5,-8)
-	var foot_back := Vector2(-6,-2)
-	var knee_front := Vector2(5,-9)
-	var foot_front := Vector2(7,-2)
-	var elbow_back := Vector2(-7,-23)
-	var hand_back := Vector2(-3,-20)
-	var elbow_front := Vector2(7,-26)
-	var hand_front := Vector2(8,-30)
+	var knee_back := Vector2(-6,-9)
+	var foot_back := Vector2(-8,-2)
+	var knee_front := Vector2(6,-10)
+	var foot_front := Vector2(8,-2)
+	var elbow_back := Vector2(-7,-22)
+	var hand_back := Vector2(-2,-24)
+	var elbow_front := Vector2(6,-23)
+	var hand_front := Vector2(8,-29)
 	if frame == 1:
 		elbow_front += Vector2(-1,1)
 		hand_front += Vector2(-1,1)
 	if frame == 2: # narrow three-quarter turn, without scaling the sprite
-		shoulder.x = -1; head.x = -1; hand_front = Vector2(3,-26)
-		elbow_front = Vector2(4,-22); foot_front.x = 4
+		shoulder.x = -1; head.x = -1; hand_front = Vector2(3,-28)
+		elbow_front = Vector2(4,-22); foot_front.x = 4; knee_front.x = 3
+		elbow_back.x = -4; hand_back = Vector2(-3,-27)
 	if frame >= 3 and frame <= 6:
-		shoulder.x = 2; head.x = 2
-		elbow_back = Vector2(-5,-23); hand_back = Vector2(-2,-25)
+		# A low straight punch rotates the chest over a stable, bent-knee base.
+		shoulder = Vector2(3,-28); head = Vector2(4,-34)
+		knee_front = Vector2(7,-9); foot_front = Vector2(9,-2)
+		elbow_back = Vector2(-5,-23); hand_back = Vector2(0,-28)
 		match frame:
-			3: elbow_front = Vector2(2,-23); hand_front = Vector2(-3,-24)
-			4: elbow_front = Vector2(10,-23); hand_front = Vector2(16,-23)
-			5: elbow_front = Vector2(14,-23); hand_front = Vector2(23,-23)
-			6: elbow_front = Vector2(8,-23); hand_front = Vector2(11,-23)
+			3: shoulder.x = 0; head.x = 1; elbow_front = Vector2(4,-21); hand_front = Vector2(1,-25)
+			4: elbow_front = Vector2(10,-24); hand_front = Vector2(16,-23)
+			5: shoulder.x = 5; head.x = 5; elbow_front = Vector2(14,-23); hand_front = Vector2(23,-23)
+			6: shoulder.x = 2; head.x = 2; elbow_front = Vector2(7,-21); hand_front = Vector2(10,-26)
 	if frame >= 7 and frame <= 10:
-		shoulder = Vector2(-5,-29); head = Vector2(-5,-35); hip = Vector2(-1,-16)
-		knee_back = Vector2(-4,-9); foot_back = Vector2(-5,-2)
-		elbow_back = Vector2(-11,-24); hand_back = Vector2(-8,-20)
-		elbow_front = Vector2(0,-25); hand_front = Vector2(2,-28)
+		# Turn the hip into the high side kick. The support leg stays under the leaning trunk,
+		# rather than hinging an impossibly long shin off the standing pelvis.
+		shoulder = Vector2(-3,-29); head = Vector2(-4,-35); hip = Vector2(3,-19)
+		knee_back = Vector2(-3,-10); foot_back = Vector2(-7,-2)
+		elbow_back = Vector2(-10,-23); hand_back = Vector2(-7,-27)
+		elbow_front = Vector2(4,-25); hand_front = Vector2(5,-30)
 		match frame:
-			7: knee_front = Vector2(7,-23); foot_front = Vector2(5,-16)
-			8: knee_front = Vector2(12,-28); foot_front = Vector2(24,-29)
-			9: knee_front = Vector2(14,-29); foot_front = Vector2(33,-30)
-			10: knee_front = Vector2(6,-22); foot_front = Vector2(11,-12)
+			7: knee_front = Vector2(10,-23); foot_front = Vector2(6,-12)
+			8: hip = Vector2(5,-21); knee_front = Vector2(17,-28); foot_front = Vector2(24,-29)
+			9: hip = Vector2(7,-21); knee_front = Vector2(20,-29); foot_front = Vector2(33,-30)
+			10: shoulder.x = -1; head.x = 0; hip = Vector2(1,-17); knee_front = Vector2(9,-15); foot_front = Vector2(8,-5)
 	if frame >= 11 and frame <= 14:
 		elbow_back = Vector2(-8,-26); hand_back = Vector2(-7,-31)
 		elbow_front = Vector2(8,-28); hand_front = Vector2(10,-33)
 		if frame == 12:
-			knee_back = Vector2(-7,-9); foot_back = Vector2(-1,-7)
-			knee_front = Vector2(8,-11); foot_front = Vector2(4,-5)
+			knee_back = Vector2(-8,-12); foot_back = Vector2(-4,-6)
+			knee_front = Vector2(9,-17); foot_front = Vector2(5,-8)
+		elif frame == 13:
+			knee_back = Vector2(-5,-10); foot_back = Vector2(-4,-3)
+			knee_front = Vector2(7,-11); foot_front = Vector2(8,-2)
 		elif frame == 11 or frame == 14:
 			shoulder.y += 2; head.y += 2; hip.y += 2
 			knee_front = Vector2(8,-7); knee_back = Vector2(-7,-7)
@@ -115,24 +143,25 @@ func ninja(frame: int, kind: int) -> void:
 		var top: float = -18 if frame == 16 else (-24 if low else -29)
 		head = Vector2(2,top+5); shoulder = Vector2(0,top+10); hip = Vector2(-3,-7)
 		knee_back = Vector2(-7,-4); foot_back = Vector2(-5,-2)
-		knee_front = Vector2(7,-6); foot_front = Vector2(7,-2)
+		knee_front = Vector2(7,-6); foot_front = Vector2(9,-2)
 		elbow_back = Vector2(-7,top+13); hand_back = Vector2(-4,top+16)
 		elbow_front = Vector2(8,top+12); hand_front = Vector2(8,top+8)
-		if frame == 26: elbow_front = Vector2(6,-13); hand_front = Vector2(9,-12)
+		if frame == 26: shoulder.x = 2; head.x = 4; elbow_front = Vector2(6,-13); hand_front = Vector2(9,-12)
 	if frame >= 18 and frame <= 21:
 		var step: int = frame-18
 		shoulder = Vector2(2,-28); head = Vector2(3,-34)
+		hip.y = -17 + step%2
 		knee_front = [Vector2(6,-11),Vector2(3,-10),Vector2(-5,-9),Vector2(0,-7)][step]
 		foot_front = [Vector2(8,-2),Vector2(-2,-3),Vector2(-7,-4),Vector2(5,-2)][step]
 		knee_back = [Vector2(-5,-9),Vector2(0,-7),Vector2(6,-11),Vector2(3,-10)][step]
 		foot_back = [Vector2(-7,-4),Vector2(5,-2),Vector2(8,-2),Vector2(-2,-3)][step]
-		elbow_front = Vector2(7,-24+step%2); hand_front = Vector2(9,-27+step%2)
-		elbow_back = Vector2(-6,-25); hand_back = Vector2(-8,-20+step%2)
-		if kind == 2: head.y += 1; shoulder.y += 1
+		elbow_front = Vector2(7,-23+step%2); hand_front = Vector2(9,-28+step%2)
+		elbow_back = Vector2(-6,-23); hand_back = Vector2(-4,-28+step%2)
+		if kind == 2: head.y += 2; shoulder.y += 2; hip.y += 1
 	if frame >= 22 and frame <= 24:
 		elbow_front = Vector2(6,-25); hand_front = Vector2(9,-23)
-		if frame == 22: shoulder.x = -2; head.x = -2; hand_front = Vector2(-10,-23)
-		if frame == 23: shoulder.x = 3; head.x = 3
+		if frame == 22: shoulder.x = -2; head.x = -2; elbow_front = Vector2(-6,-19); hand_front = Vector2(-10,-23)
+		if frame == 23: shoulder.x = 4; head.x = 4; knee_front.x = 8; foot_front.x = 10
 	if frame >= 27:
 		match frame:
 			27:
@@ -176,22 +205,28 @@ func ninja(frame: int, kind: int) -> void:
 				elbow_front = Vector2(-10,-2); hand_front = Vector2(-17,-2)
 		if frame == 31: hand_front.x -= 1 # Last held frame relaxes the bracing hand.
 	# Back limbs, belted tunic, then foreground limbs give useful negative space and depth.
-	limb(hip+Vector2(-2,0),knee_back,foot_back,3,false)
+	limb(hip+Vector2(-2,0),knee_back,foot_back,4,false)
 	limb(shoulder+Vector2(-2,0),elbow_back,hand_back,3,false)
-	poly([shoulder+Vector2(-5,-2),shoulder+Vector2(5,-2),hip+Vector2(6,2),hip+Vector2(-5,2)],INK)
-	poly([shoulder+Vector2(-3,-1),shoulder+Vector2(4,-1),hip+Vector2(4,0),hip+Vector2(-3,0)],ramp[1])
-	stroke(shoulder+Vector2(-3,0),hip+Vector2(-2,-2),2,ramp[2])
-	stroke(shoulder+Vector2(2,2),hip+Vector2(0,-3),1,ramp[3])
-	stroke(hip+Vector2(-4,-2),hip+Vector2(4,-2),2,ramp[4])
+	var waist := shoulder.lerp(hip,0.72)
+	poly([shoulder+Vector2(-5,-2),shoulder+Vector2(5,-2),waist+Vector2(4,0),hip+Vector2(6,3),hip+Vector2(-5,3),waist+Vector2(-4,0)],INK)
+	poly([shoulder+Vector2(-3,-1),shoulder+Vector2(4,-1),waist+Vector2(3,0),hip+Vector2(4,1),hip+Vector2(-3,1)],ramp[1])
+	poly([shoulder+Vector2(-3,0),shoulder+Vector2(1,1),waist+Vector2(0,-2),waist+Vector2(-3,0)],ramp[2])
+	stroke(shoulder+Vector2(3,1),waist+Vector2(-1,-2),1,ramp[0])
+	stroke(hip+Vector2(-4,-2),hip+Vector2(4,-2),2,ramp[0])
+	box(int(hip.x)-1,int(hip.y)-3,3,2,ramp[4])
+	stroke(hip+Vector2(1,-1),hip+Vector2(3,3),2,ramp[1])
 	limb(hip+Vector2(2,0),knee_front,foot_front,4,true)
-	limb(shoulder+Vector2(2,0),elbow_front,hand_front,3,true)
-	box(int(hand_front.x)-2,int(hand_front.y)-1,4,2,SKIN)
-	box(int(hand_front.x),int(hand_front.y)-1,2,1,LIGHT)
+	var dynamic_hand: bool = (kind == 1 and frame in [18,19,20,21,22,23,24]) or (kind == 2 and frame in [15,25,26])
+	if not dynamic_hand: limb(shoulder+Vector2(2,0),elbow_front,hand_front,3,true)
+	# Red's weapon hand and Blue's striking fist are rendered from their real transforms.
+	if not dynamic_hand:
+		box(int(hand_front.x)-1,int(hand_front.y)-1,3,2,SKIN)
+		pixel(int(hand_front.x)+1,int(hand_front.y)-1,LIGHT)
 	# Hood: stepped crown, brow, eye slit, mask and three deliberate cloth highlight clusters.
 	var hx: int = int(head.x); var hy: int = int(head.y)
 	poly([Vector2(hx-5,hy-3),Vector2(hx-3,hy-5),Vector2(hx+3,hy-5),Vector2(hx+5,hy-2),Vector2(hx+5,hy+4),Vector2(hx-4,hy+5)],INK)
-	box(hx-3,hy-4,6,2,ramp[2]); box(hx-4,hy-2,8,6,ramp[1])
-	box(hx-3,hy-4,3,1,ramp[3]); box(hx-4,hy-1,8,1,ramp[4])
+	box(hx-3,hy-4,6,2,ramp[1]); box(hx-4,hy-2,8,6,ramp[1])
+	box(hx-3,hy-3,2,2,ramp[2]); box(hx-4,hy-1,8,1,ramp[4])
 	box(hx+1,hy,4,2,SKIN); pixel(hx+3,hy,LIGHT); pixel(hx+2,hy+1,INK)
 	box(hx,hy+2,4,2,ramp[0]); box(hx-3,hy+2,2,1,ramp[2])
 	if frame < 27:
@@ -199,6 +234,8 @@ func ninja(frame: int, kind: int) -> void:
 		pixel(hx-11,hy+3,ramp[1])
 	if frame == 9: # The high-kick shoe lies wholly inside x=14..36, y=-33..-27.
 		box(30,-33,6,6,INK); box(30,-32,5,4,ramp[2]); box(32,-32,3,1,ramp[3])
+	if frame == 5: # Knuckle edge stays inside the existing x=6..25.5, y=-25..-21 punch region.
+		box(21,-25,4,4,INK); box(22,-24,3,2,SKIN); box(23,-24,2,1,LIGHT)
 
 func build_hazards() -> void:
 	# An 18 px drawn circle matches radius 9; one transparent pixel pads each 20 px cell.

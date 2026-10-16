@@ -99,8 +99,11 @@ shoji silhouettes retain the existing separate cosmetic RNG and intervals; their
 two-pixel increments. Three lamp intensity/shadow states keep illumination deliberately stepped.
 
 Milestones 28 and 29 are **COMPLETE for functional development** following user manual review.
-Current character sprites are accepted first-pass 16-bit placeholders, not final artwork.
-Substantial Player punch/kick anatomy and pose polish, plus the same Red/Blue quality review,
-is required before release; see the
-[Roadmap art debt](../Roadmap.md#required-pre-release-character-art-polish).
-Preserve current gameplay timings, hitboxes and animation-state alignment when polishing the art.
+Milestone 35 replaces the three ninja atlases with tapered cloth silhouettes, connected joints,
+weighted ready/attack poses, raised kick pelvis, clearer crouches and grounded collapse poses.
+The same 32-cell catalogue and native footprint are retained. Intermediate recovery poses
+fit inside the original clocks; the active fist and shoe remain aligned with unchanged reach.
+Red's weapon hand and Blue's low striking hand are drawn by the runtime presentation adapter
+instead of appearing twice in the atlas. Barrel, Shuriken, environment and HUD assets are unchanged.
+Owner visual/animation acceptance is complete for the present release. Further refinement
+is optional future work; see the [roadmap](../Roadmap.md).

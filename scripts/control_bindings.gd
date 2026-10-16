@@ -144,5 +144,5 @@ func binding_text(action: String, device: String) -> String:
 	if device == "key": return OS.get_keycode_string(bindings[action].key)
 	var spec: Array = bindings[action].pad
 	if spec[0] == "axis": return "Stick %s" % (["Left", "Right"] if spec[1] == 0 else ["Up", "Down"])[0 if spec[2] < 0 else 1]
-	var names := {0: "South", 1: "East", 2: "West", 3: "North", 6: "Start", 11: "D-Up", 12: "D-Down", 13: "D-Left", 14: "D-Right"}
+	var names := {0: "Face Down", 1: "Face Right", 2: "Face Left", 3: "Face Up", 6: "Start", 11: "D-Up", 12: "D-Down", 13: "D-Left", 14: "D-Right"}
 	return names.get(spec[1], "Button %d" % spec[1]) + (" / Stick" if spec[0] == "direction" else "")

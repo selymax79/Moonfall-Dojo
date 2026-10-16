@@ -39,7 +39,7 @@ The roadmap records the observed check counts and remaining hardware acceptance.
 ## Remaining hands-on acceptance
 
 - Connect a controller: navigate title/options/Controls with D-pad and left stick; verify
-  South/Accept, East/Cancel, Start/Pause and all four gameplay face buttons.
+  Face Down/Accept, Face Right/Cancel, Start/Pause and all four gameplay face buttons.
 - Rebind a key/button/stick direction, reject a conflict, cancel capture using Esc/View,
   restore defaults, then restart/relaunch and check persistence.
 - Hold the stick while entering gameplay, pausing, and ending a committed action: there
