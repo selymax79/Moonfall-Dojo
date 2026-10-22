@@ -6,6 +6,10 @@ var main
 var targets: Array[Dictionary] = []
 var held: Dictionary = {}
 const INK := Color(0.95, 0.85, 0.65)
+# On-screen initials keys: 12 columns x 3 rows (A-L, M-X, Y-Z + 0-9) between the letters and ERASE/SAVE.
+const GRID_ORIGIN := Vector2(58, 128)
+const GRID_PITCH := Vector2(44, 34)
+const GRID_KEY_SIZE := Vector2(40, 30)
 
 
 func add_target(rect: Rect2, command: String, value: int = 0, label: String = "") -> void:
@@ -32,11 +36,15 @@ func refresh() -> void:
 		main.GameState.HIGH_SCORES:
 			add_target(Rect2(224, 312, 192, 36), "back", 0, "BACK TO TITLE")
 		main.GameState.INITIALS_ENTRY:
-			add_target(Rect2(108, 265, 64, 38), "previous", 0, "<")
-			add_target(Rect2(180, 265, 64, 38), "next", 0, ">")
-			add_target(Rect2(252, 265, 100, 38), "back", 0, "ERASE")
-			var label: String = "SAVE" if main.initials.length() == 3 else "ADD " + main.INITIAL_CHARACTERS[main.initial_choice]
-			add_target(Rect2(360, 265, 172, 38), "initial", 0, label)
+			# Keyboard-only players just type, so the grid appears only for touch or a moved cursor.
+			if main.initials_grid_visible():
+				for index in main.INITIAL_CHARACTERS.length():
+					var column: int = index % main.INITIAL_GRID_COLUMNS
+					@warning_ignore("integer_division")
+					var row: int = index / main.INITIAL_GRID_COLUMNS
+					add_target(Rect2(GRID_ORIGIN + Vector2(column, row) * GRID_PITCH, GRID_KEY_SIZE), "initial_key", index, main.INITIAL_CHARACTERS[index])
+				add_target(Rect2(170, 236, 140, 32), "back", 0, "ERASE")
+				add_target(Rect2(330, 236, 140, 32), "save", 0, "SAVE")
 		main.GameState.CONTROLS:
 			var menu = main.controls_overlay
 			if not menu.listening:
@@ -49,9 +57,14 @@ func refresh() -> void:
 			add_target(Rect2(436, 304, 180, 36), "controls_back", 0, "CANCEL" if menu.listening else "BACK")
 		main.GameState.RUN:
 			if main.get_tree().paused:
-				add_target(Rect2(182, 151, 276, 80), "resume")
+				# Rows are the visible pause-menu labels; unlabeled targets draw no extra box.
+				for index in 3:
+					var row: Control = main.get_node("HUD/PauseOverlay/Options").get_child(index)
+					add_target(row.get_global_rect(), ["resume", "pause_restart", "pause_quit"][index], index)
 			elif main.game_over_overlay.visible:
-				add_target(Rect2(182, 151, 276, 80), "restart")
+				var rows: Control = main.get_node("HUD/GameOverOverlay/Options")
+				add_target(rows.get_child(0).get_global_rect(), "restart")
+				add_target(rows.get_child(1).get_global_rect(), "game_over_menu")
 	queue_redraw()
 
 
@@ -108,11 +121,10 @@ func activate(target: Dictionary) -> void:
 			main.options_selection = target.value
 			action("menu_left" if target.command == "volume_down" else "menu_right")
 		"back": action("menu_back")
-		"previous": action("menu_left")
-		"next": action("menu_right")
-		"initial":
-			main.initial_picker_active = true
-			action("menu_accept")
+		"initial_key":
+			main.initial_choice = target.value
+			main.add_initial(main.INITIAL_CHARACTERS[target.value])
+		"save": main.submit_initials()
 		"key_binding", "pad_binding":
 			main.controls_overlay.selection = target.value
 			main.controls_overlay.device = "key" if target.command == "key_binding" else "pad"
@@ -124,14 +136,22 @@ func activate(target: Dictionary) -> void:
 			event.keycode = KEY_ESCAPE
 			event.pressed = true
 			main.controls_overlay.handle_input(event)
-		"resume": main.set_game_paused(false)
-		"restart": main.start_new_run()
+		"resume", "pause_restart", "pause_quit": main.choose_pause_option(target.value)
+		"restart": main.choose_game_over_option(main.GameOverOption.TRY_AGAIN)
+		"game_over_menu": main.choose_game_over_option(main.GameOverOption.MENU)
 	main.update_menu()
 
 
 func _draw() -> void:
 	for target in targets:
 		if target.label.is_empty(): continue
-		draw_rect(target.rect, Color(0.035, 0.055, 0.09))
-		draw_rect(target.rect, INK, false)
-		draw_string(ThemeDB.fallback_font, target.rect.position + Vector2(0, target.rect.size.y / 2 + 6), target.label, HORIZONTAL_ALIGNMENT_CENTER, target.rect.size.x, 18, INK)
+		var ink: Color = INK
+		var fill := Color(0.035, 0.055, 0.09)
+		# The controller cursor highlights its grid key; SAVE stays dim until three slots are filled.
+		if target.command == "initial_key" and main.initial_picker_active and target.value == main.initial_choice:
+			fill = Color(0.30, 0.25, 0.14)
+		elif target.command == "save" and main.initials.length() < 3:
+			ink = Color(INK, 0.35)
+		draw_rect(target.rect, fill)
+		draw_rect(target.rect, ink, false)
+		draw_string(ThemeDB.fallback_font, target.rect.position + Vector2(0, target.rect.size.y / 2 + 6), target.label, HORIZONTAL_ALIGNMENT_CENTER, target.rect.size.x, 18, ink)

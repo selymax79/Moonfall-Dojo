@@ -33,14 +33,16 @@ Initials Entry retains final statistics; other menus hide them. P cannot pause m
 initials entry (typing P enters an initial). Gameplay presses and
 held-key echoes cannot buffer into the next run. Menu dwell/navigation consumes no gameplay RNG.
 
-Start Game and non-qualifying Game Over Enter share `start_new_run()`: a deferred
-replacement of Main with a fresh RUN instance. Starts use the selected level; Game Over restarts
+Start Game, Game Over Try Again and pause-menu Restart share `start_new_run()`: a deferred
+replacement of Main with a fresh RUN instance. Starts use the selected level; restarts
 retain the current `run_start_level`. All begin unpaused at x1.0 with zero Score/Kills/Dodges,
 an idle living Player and a fresh scheduler including its first threat and pending choice.
-The shared records object survives replacement; old gameplay nodes are removed together.
+Pause-menu Quit and Game Over Return to Menu use `quit_to_title()`, the same replacement into
+a fresh Title instance that keeps the run's Start Level selected. Both paths go through
+`replace_scene()`. The shared records object survives replacement; old gameplay nodes are removed together.
 The Title-to-run handover preserves gameplay RNG seed/state, making seeded sequences independent
-of menu time. In-run restarts retain fresh RNG behaviour. There is no live-run return-to-title
-control; qualifying Game Over reaches Title through the leaderboard.
+of menu time. In-run restarts retain fresh RNG behaviour. Qualifying Game Over reaches Title
+through the leaderboard.
 
 ## Action-Based Input / Controls
 
@@ -48,7 +50,9 @@ control; qualifying Game Over reaches Title through the leaderboard.
 bindings. Main owns state gating and filters fresh physical presses before Player receives them.
 Player still consumes the same named events; no action clocks, collisions, scoring or scheduler
 rules change. Existing `menu_*` names are retained instead of adding parallel `ui_*` actions.
-`restart_run` mirrors Menu Accept. There are no development-only input actions.
+There are no development-only input actions. In the pause and Game Over menus, R and Q are
+fixed keyboard shortcuts (Restart/Try Again and Quit/Return to Menu); they are not remappable
+actions and do nothing during play.
 
 | Action | Keyboard default | Controller default |
 | --- | --- | --- |
@@ -57,9 +61,9 @@ rules change. Existing `menu_*` names are retained instead of adding parallel `u
 | Duck | Down arrow | Face Left (X / Square) |
 | Punch | Z | Face Down (A / Cross) |
 | Kick | X | Face Right (B / Circle) |
-| Pause / Resume | P | Start / Menu |
+| Pause / Resume | P (Esc also pauses/resumes; fixed) | Start / Menu |
 | Menu Up / Down / Left / Right | Arrow keys | D-pad or left stick |
-| Menu Accept / Game Over restart | Enter | Face Down |
+| Menu Accept | Enter | Face Down |
 | Menu Cancel | Escape | Face Right |
 
 This controller layout follows the explicit combined 32/33 ticket, superseding the earlier
@@ -83,7 +87,7 @@ Sharing across those contexts is intentional (for example Face Down = Punch and 
 Esc and gamepad View/Back cancel capture and provide a recovery exit from Controls. They cannot
 be captured; Escape remains the default Menu Cancel. Standalone modifier keys cannot
 be bound. Letter bindings used by menu actions take priority over direct typing in initials entry;
-the direction-driven picker remains usable. Restore defaults resets both device columns together.
+the on-screen key grid remains usable. Restore defaults resets both device columns together.
 
 RunRecords stores `[controls] bindings` in the existing `user://high_score.cfg`, using the same
 complete temporary-write/rename path as scores, unlocks and audio. No new save path or autoload
@@ -110,12 +114,12 @@ Pause. Menus use direct targets instead of the gameplay pad.
 
 [menu_pointer.gd](scripts/menu_pointer.gd) adds hit areas to the existing state handlers in
 [main.gd](scripts/main.gd): title rows, Start Level arrows, volume arrows, Back, Controls cells
-and paging/capture cancellation, initials Previous/Next/Add/Erase/Save, Resume and Game Over
-restart. It owns pointer gestures, not menu state or a second menu implementation. A tap activates
-on release inside its original target; cancellation/drag-out is inert. The initial title hit areas
-refresh after container layout. Unclaimed physical pointer events are consumed before menu
-navigation so synthetic mouse/move events cannot cancel a pending touch. Keyboard/controller
-navigation still uses the same handlers. The full pause-menu expansion remains unimplemented.
+and paging/capture cancellation, the initials key grid with Erase/Save, the three pause-menu rows
+and the two Game Over rows. It owns pointer gestures, not menu state or a second menu implementation.
+A tap or click activates on release inside its original target; cancellation/drag-out is inert. The
+initial title hit areas refresh after container layout. Unclaimed physical pointer events are consumed
+before menu navigation so synthetic mouse/move events cannot cancel a pending touch.
+Keyboard/controller navigation still uses the same handlers.
 
 The Controls toggle survives run replacement but is session-only. Native desktop and desktop
 browsers without touch default OFF; touch browsers default ON. Remapped physical keys/buttons do
@@ -197,35 +201,52 @@ Death immediately cancels pending spawning and prevents further gameplay rewards
 Before menu entry, surviving Assassins finish recovery; active hazards freeze; resolved
 Barrel/Shuriken cosmetics may finish without rewards. Initials Entry hides/freezes all actors.
 
-A qualifying score shows GAME OVER / NEW HIGH SCORE / ENTER INITIALS. Type three A–Z/0–9
-characters (letters become uppercase); Backspace removes the last character; Enter confirms
-only when all three slots are filled. Alternatively, menu directions activate a character picker;
-Up/Right advances through A-Z/0-9, Down/Left reverses, Accept adds the displayed character,
-and Cancel erases the last slot. Accept submits once three slots are filled. Direct typing exits
-picker mode, so Enter on fewer than three typed characters remains harmless. Confirmation
-inserts/saves once and shows High Scores.
+Only a score that qualifies for the Top 10 opens initials entry (GAME OVER / NEW HIGH SCORE —
+ENTER YOUR INITIALS); any other run goes straight to the Game Over menu below.
+- **Keyboard:** type three A–Z/0–9 characters (letters become uppercase); Backspace removes the
+  last character; Menu Accept saves only when all three slots are filled. No key grid is shown.
+- **Touch:** an on-screen grid of 36 keys (A–L, M–X, Y–Z and 0–9) plus ERASE and SAVE.
+  SAVE stays dim and inert until three slots are filled.
+- **Controller / arrow keys:** the first direction press shows the same grid with a highlighted
+  cursor; Left/Right move one key, Up/Down one row (wrapping). Accept adds the highlighted key,
+  Cancel erases, and Accept saves once three slots are filled. Typing hides the cursor again, so
+  Accept on fewer than three typed characters remains harmless.
+A fourth character is ignored. Confirmation inserts/saves once and shows High Scores.
 Enter/Esc then returns to Title, not directly to a new run. Pause is disabled during
-entry; typing P remains a valid initial. Echoes and invalid characters are ignored.
+entry; typing P, R or Q remains a valid initial. Echoes and invalid characters are ignored.
 
-A non-qualifying score shows centred GAME OVER and **Enter to restart**.
-Menu Accept (also applied to the `restart_run` alias) accepts a fresh press only while this overlay is visible
-and unpaused. Enter during play, actions, death animation or pause is discarded, not buffered.
-Restart replaces Main with an unpaused run at its original starting level: counters
+A non-qualifying score shows the Game Over menu: **TRY AGAIN** (preselected) and **RETURN TO MENU**.
+Up/Down move the cursor; Menu Accept chooses it, so Enter still restarts by default. R chooses
+Try Again; Q or the controller's Menu Cancel chooses Return to Menu; tapping/clicking a row
+chooses it. Esc opens the pause menu here, as during play. Touchscreens
+hide the "- R"/"- Q" shortcut labels. Presses during play, actions, the death animation or pause
+are discarded, not buffered.
+Try Again replaces Main with an unpaused run at its original starting level: counters
 reset to zero, multiplier to x1.0, Player and scheduler reset, and old threats are removed.
 The saved leaderboard and unlocks survive restart. High Score always means the
 confirmed table's top entry; a qualifying run joins it only on initials confirmation.
-There is no restart control during a live run; restarting is only offered after Game Over.
 
-P remains available during death and non-qualifying Game Over. Pause freezes the death animation
-and delays qualification/Game Over. PAUSED temporarily replaces the restart overlay; P restores it.
+P and Esc remain available during death and non-qualifying Game Over. Pause freezes the death animation
+and delays qualification/Game Over. The pause menu temporarily replaces the Game Over menu;
+Resume restores it.
 
 ## Pause
 
-During a run, P toggles SceneTree pause on a fresh, non-echo press, including during death.
-Menus ignore the Pause action. A centred
-PAUSED overlay and P-to-resume hint appear over the HUD. Player actions/turning/death,
-all threat movement/attacks/cosmetics, and scheduler gameplay time freeze without wall-clock
-catch-up. Gameplay presses during pause are discarded, not queued for resume.
+During a run, P (the remappable Pause action) or Esc pauses on a fresh, non-echo press, including
+during death. Esc is a fixed key rather than Menu Cancel because a controller's Menu Cancel button
+is also Kick.
+Menus ignore the Pause action. A centred PAUSED menu appears over the play area with three rows:
+- **RESUME** (preselected each time): Pause, Menu Cancel or Menu Accept (P / Esc / Enter by default),
+  or tap/click the row.
+- **RESTART - R**: R, or select it and press Accept, or tap/click. Starts a fresh run at the same
+  starting Level.
+- **QUIT TO MENU - Q**: Q, or select it and press Accept, or tap/click. Returns to a fresh Title.
+Up/Down move the cursor with wraparound. Restart and Quit abandon the run: its score is never
+offered for the high-score table, while Levels already unlocked stay saved. The hint line follows
+the current Pause/Cancel/Accept key bindings; touchscreens show "TAP AN OPTION" and hide the R/Q labels.
+The touch overlay's Pause button also resumes.
+Player actions/turning/death, all threat movement/attacks/cosmetics, and scheduler gameplay
+time freeze without wall-clock catch-up. Gameplay presses during pause are discarded, not queued for resume.
 
 Main uses Always processing so P and menus remain available, with one central pause guard before
 its simulation tick. Player and spawned threat roots use Pausable processing, including
@@ -239,13 +260,13 @@ The intended response is **not a magic attack-type rule**. Current visual/hurtbo
 and spatial overlap determine success. Both entry sides mirror the same mechanics.
 
 - **Red Assassin → Kick.** Standing 16×40 body; stops 38 px away. Punch's 25.5 px
-  reach cannot bridge the 30 px gap to its near body edge; Kick can. Telegraph is 0.35,
-  strike 0.20, recovery 0.25, retry wait 0.40. The katana travels during its strike;
+  reach cannot bridge the 30 px gap to its near body edge; Kick can. Telegraph (wind-up) is 0.35
+  (shortening from Level 40, see Threat Speed), strike 0.20, recovery 0.25, retry wait 0.40. The katana travels during its strike;
   first standing contact is 0.09 after strike begins. Duck can pass below the blade
   (y=276..278) but does not defeat or resolve Red. A valid Player attack wins a same-tick clash.
 - **Blue Assassin → Punch.** Stops 30 px away; crouches over 0.08 to a 16×24 body
   at y=276..300, remaining low thereafter. Raised Kick passes above it; Punch overlaps.
-  Telegraph/strike/recovery/retry are 0.35/0.20/0.25/0.40. Fist first reaches standing
+  Telegraph/strike/recovery/retry are 0.35 (shortening from Level 40)/0.20/0.25/0.40. Fist first reaches standing
   Player 0.08 into strike, at y=286..290; Duck remains vulnerable. Jump may spatially evade.
 - **Barrel → Jump.** Radius 9 (18×18), centre y=291; base speed ×1.15. Standing/Duck collide.
   Punch/Kick do not destroy it. Complete horizontal passage awards a Dodge, then
@@ -260,22 +281,31 @@ and spatial overlap determine success. Both entry sides mirror the same mechanic
 
 ## Threat Speed
 
-Levels 1–14 use `base_speed = min(60 + 5 * (level - 1), 100)` px/s.
-Levels 15–19 use 105 px/s; Levels 20+ use 110 px/s. Thus the familiar Level 1–9 ramp
-is preserved, followed by two small recognition-pressure steps rather than unbounded speed.
+Levels 1–14 use `base_speed = min(60 + 5 * (level - 1), 100)` px/s and Levels 15–19 use 105.
+From Level 20, `base_speed = min(110 + (level - 20), 140)`: one more px/s per Level, levelling
+off at 140 from Level 50. The familiar Level 1–9 ramp is preserved; late Levels keep getting
+faster instead of going static at Level 20 as they once did.
 Assassins use base speed; Barrel uses `base_speed * 1.15`; Shuriken uses `base_speed * 1.25`.
 
-| Level | Base / Assassins | Barrel | Shuriken |
-| --- | --- | --- | --- |
-| 1 | 60 | 69 | 75 |
-| 5 | 80 | 92 | 100 |
-| 9–14 | 100 | 115 | 125 |
-| 15–19 | 105 | 120.75 | 131.25 |
-| 20+ | 110 | 126.5 | 137.5 |
+| Level | Base / Assassins | Barrel | Shuriken | Assassin wind-up |
+| --- | --- | --- | --- | --- |
+| 1 | 60 | 69 | 75 | 0.35 |
+| 5 | 80 | 92 | 100 | 0.35 |
+| 9–14 | 100 | 115 | 125 | 0.35 |
+| 15–19 | 105 | 120.75 | 131.25 | 0.35 |
+| 20 | 110 | 126.5 | 137.5 | 0.35 |
+| 30 | 120 | 138 | 150 | 0.35 |
+| 40 | 130 | 149.5 | 162.5 | 0.34 |
+| 49 | 139 | 159.85 | 173.75 | 0.25 |
+| 50+ | 140 | 161 | 175 | 0.25 |
 
 All speeds are logical px/s. Jump remains 0.82 s / 55 px; Duck remains 0.60 s.
-Final speed is assigned at spawn; existing threats never speed up retroactively.
-Assassins begin their moving telegraph farther out at higher speeds, preserving its 0.35 s.
+Final speed and wind-up are assigned at spawn; existing threats never change retroactively.
+From Level 40 the assassins' wind-up (their visible telegraph) shortens by 0.01 s per Level to a
+0.25 s floor, close to human reaction time, at Level 49+. Assassins keep full speed through the
+wind-up and begin it farther out at higher speeds, so a shorter wind-up changes only how late the
+telegraph appears, never strike timing or the Player's press window. Even at the shortest
+wind-up and highest speed, Blue finishes crouching before it enters Kick range.
 
 ### Barrel / Jump tuning verification
 
@@ -325,11 +355,10 @@ initials are uppercased, filtered to A–Z/0–9, truncated/padded with A to thr
 Loaded tables are sorted descending and trimmed to ten. Highest Level must be a positive integer;
 invalid values fall back to 1. No artificial gameplay level cap is added.
 
-Earlier equal scores retain their order. A new score qualifies when fewer than ten entries exist,
-or when it strictly exceeds the tenth score. An equal cutoff cannot displace an existing entry.
+Earlier equal scores retain their order. A score of zero is void and never qualifies. Any other
+score qualifies when fewer than ten entries exist, or when it strictly exceeds the tenth score. An equal cutoff cannot displace an existing entry.
 High Score derives from entry #1, or zero for an empty table; no separate record is maintained.
-New runs do not change it until initials are confirmed. Zero-score runs may legitimately qualify in
-an incomplete table; empty UI rows themselves are never persisted.
+New runs do not change it until initials are confirmed. Empty UI rows themselves are never persisted.
 
 After each real success, the run's current Level updates the highest unlock if greater.
 Level is always earned, so no separate unlock formula exists. Previously unlocked higher
@@ -412,6 +441,10 @@ use the same ordinary threat path. No pattern-specific timers, rewards or speed 
 
 ### Pattern measurements and verification
 
+These pattern measurements predate the 2026-10-22 fairness model and speed curve; current
+pacing is under Difficulty shaping below. Pattern selection itself is unchanged.
+
+
 Godot runtime stepping at 60 Hz, seed 310031, 2,000 successfully handled threats at each fixed
 Level (16,000 total). Only the test fixture locks Level; production progression is unchanged.
 Each row completed every started pattern, with average length **2.0**, no deaths, skipped
@@ -481,139 +514,93 @@ Restart recreates the scene and all scheduler state.
 
 ### Difficulty shaping and measured pacing
 
-The following measurements are the Milestone 30 baseline before curated selection; current
-pattern share, distributions and overlap are reported above. The speed/gap curve is unchanged.
-Levels 1–14 retain their established speed/gaps. Level 1 gives approximately 3.0–3.6 s
-from entry to the first standing contact, then about 4.37 s between intended responses.
-Levels 2–3 shorten travel with the existing +5 px/s steps. Level 5 averages 3.29 s per response.
-Unlocking two threats at Level 6 is a deliberate large step (1.59 s per response); its
-approximately 52% reduction from Level 5 is a priority for user playtesting, not a claim of
-automatically smooth subjective difficulty. Both approaches remain readable before their
-separate response slots. Level 8 averages 1.40 s and Level 10 averages 1.34 s.
+Difficulty keeps rising until Level 50 through three linked levers: faster threats (Threat Speed),
+a shorter assassin telegraph from Level 40, and the tighter fairness model below, which lets
+threats arrive closer together while every sequence stays survivable. From Level 50 the curve
+levels off at its hardest setting. An earlier version stopped changing at Level 30
+(0.827 threats/s at every Level from 30 up); owner playtesting past Level 30 found that static.
 
-Previously Levels 10/15/20/30/40/50 had identical timing for the same seed. Tested gap-only
-changes at base 100 reduced the mean interval to 1.254 s even with a zero gap. Speed-only
-growth to 120–130 reduced overlap and sometimes increased idle time because the same
-fairness reservations then blocked admissions. A combined 115-speed candidate was also
-less effective than the selected 110 cap at sustaining overlap. The chosen late steps
-shorten visual lead time by up to 9% and raise response frequency by about 9% from Level 10
-to Level 30, without changing the reservation model, margins, action timings or threat mix.
+Measured with [pacing_measure.gd](tools/regression/pacing_measure.gd): seed 300030, 400 handled
+threats per fixed Level, a test-only Level lock, and an idealised autopilot pressing each threat
+at its planned moment. These are pacing measurements, not human performance.
 
-Level 30+ is a bounded endurance tier: zero **additional** gap does not mean instant or unsafe
-spawning. The response/recovery reservations, current commitment, 100 ms safety margin,
-Assassin turn allowance and two-threat cap still apply. Levels 40/50 intentionally match
-Level 30; no hidden inevitable-death ramp is added. This removes the Level-10 plateau,
-not every eventual difficulty ceiling. Curated selection now adds short authored sequences.
-Whether the modest increase feels sufficiently hard is still awaiting manual acceptance.
+| Level | Base speed | Threats per second | Mean spawn gap (s) | Time with 2 unresolved | Previous model (threats/s) |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 60 | 0.216 | 4.620 | 0% | 0.229 |
+| 5 | 80 | 0.307 | 3.253 | 0% | 0.304 |
+| 6 | 85 | 0.574 | 1.741 | 50.0% | 0.628 |
+| 10 | 100 | 0.817 | 1.223 | 69.4% | 0.751 |
+| 15 | 105 | 0.911 | 1.098 | 79.5% | 0.787 |
+| 20 | 110 | 0.997 | 1.003 | 87.4% | 0.816 |
+| 25 | 115 | 1.036 | 0.965 | 87.0% | 0.816 |
+| 30 | 120 | 1.144 | 0.874 | 97.5% | 0.827 |
+| 40 | 130 | 1.222 | 0.818 | 95.7% | 0.827 |
+| 50+ | 140 | 1.270 | 0.787 | 88.4% | 0.827 |
 
-Measured at 60 Hz with seed 300030 and 400 successfully handled threats per fixed Level
-(4,400 total), using spatially valid intended-response inputs. A test-only Level lock isolates
-each tier; separate progressing runs test real Level advancement. Spawn/response intervals
-exclude the initial entry; occupancy includes the opening and final drain. These are an
-idealised controller's pacing measurements, not human performance or a promise about all seeds.
+Levels 1–5 are paced by the one-threat cap and spawn gaps, so they barely change. Level 6 is
+about 9% gentler than before, softening the previously large Level 5→6 step. From Level 10 up,
+pressure rises steadily: about +38% at Level 30 and +54% at Level 50 compared with the old curve.
 
-| Level | Mean spawn / response (s) | Spawn median / p10 / p90 (s) | Time with 2 unresolved | Mean unresolved | Admissions delayed by fairness | Longest cumulative fairness wait (s) |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | 4.367 / 4.368 | 4.383 / 4.233 / 4.600 | 0% | 0.802 | 0% | 0 |
-| 3 | 3.866 / 3.868 | 3.883 / 3.750 / 4.067 | 0% | 0.777 | 0% | 0 |
-| 5 | 3.291 / 3.292 | 3.300 / 3.200 / 3.467 | 0% | 0.798 | 0% | 0 |
-| 6 | 1.588 / 1.589 | 1.633 / 1.317 / 1.767 | 55.4% | 1.554 | 21.6% | 0.767 |
-| 8 | 1.403 / 1.404 | 1.400 / 1.083 / 1.733 | 57.9% | 1.579 | 43.1% | 0.933 |
-| 10 | 1.335 / 1.336 | 1.367 / 1.017 / 1.650 | 57.4% | 1.574 | 56.9% | 1.067 |
-| 15 | 1.274 / 1.275 | 1.300 / 0.933 / 1.633 | 57.1% | 1.571 | 71.2% | 1.200 |
-| 20 | 1.238 / 1.239 | 1.267 / 0.933 / 1.633 | 54.0% | 1.540 | 77.7% | 1.367 |
-| 30 | 1.223 / 1.223 | 1.267 / 0.900 / 1.633 | 55.9% | 1.559 | 84.5% | 1.467 |
-| 40 | 1.223 / 1.223 | 1.267 / 0.900 / 1.633 | 55.9% | 1.559 | 84.5% | 1.467 |
-| 50 | 1.223 / 1.223 | 1.267 / 0.900 / 1.633 | 55.9% | 1.559 | 84.5% | 1.467 |
-
-Fairness waits count eligible attempts blocked by reservations/current commitment, excluding
-minimum-gap and capacity waits. At Level 6+ every admission after the first overlapped an
-existing threat in this sample; overlap time is lower because threats resolve at different times.
-There was no empty gameplay time after opening at these tiers. At Levels 1/3/5, approximately
-80.2/77.7/79.8% of time had one unresolved threat; the rest was breathing time. Later time with
-one unresolved is the complement of the two-threat percentage. The exact same seeded choices
-gave Red/Blue/Barrel/Shuriken counts 90/112/97/101 and Left/Right 208/192 at every tier.
-That baseline used independent uniform draws. Current selection mixes the balanced pattern
-library with ordinary random choices, without rebalancing or anti-streak logic.
-
-Practical successful input spans from full spawn, sampled at 60 Hz (earliest-to-latest successful
-press, facing correctly for Assassins; both sides tested):
-
-| Level | Red Kick | Blue Punch | Barrel Jump | Shuriken Duck |
-| --- | --- | --- | --- | --- |
-| 1 | 350 ms | 200 ms | 233 ms | 150 ms |
-| 5 | 300–317 ms | 200 ms | 350 ms | 217 ms |
-| 9–14 | 300 ms | 183 ms | 417 ms | 267 ms |
-| 15–19 | 300 ms | 183 ms | 433 ms | 283 ms |
-| 20+ | 300 ms | 183 ms | 450 ms | 283 ms |
-
-All windows stay positive; deliberate early and late attempts fail. Red's Level-5 boundary
-differs by one physics tick between mirrored sides, already present before difficulty tuning;
-late-tier windows match. Hazard input windows widen as faster hazards clear the Player sooner:
-their increased difficulty is recognition/sequence pressure, not tighter individual timing.
-Blue remains the tighter late-game response. This asymmetry is preserved rather than changing
-Player actions or dishonest collision geometry to make every threat equally difficult.
-
-Verification passed the original 384-pair matrix plus 320 late-tier pairs, 9,000 progressing
-encounters (4,000 repeated with identical seed/timeline; 1,000 with another seed), and all fixed-tier
-runs above. No unsafe admissions, starvation, deadlocks or cap violations occurred; the measured
-minimum reservation margin remained 100 ms. Pause, higher starts, combat, scoring, persistence
-and menu/restart regressions passed. Late-tier boundary checks cover the speed and gap at Levels 15/20/30.
-
-Manual acceptance should compare Levels 5→6 and 10→15→20→30, including several different seeds.
-With no Level-skip control, reaching these tiers requires earning them (or a previously unlocked Start Level).
-Judge recognition, breathing room and fatigue rather than just speed. Automated inputs and
-rendered inspection do not establish human difficulty or replace physical-keyboard playtesting.
+Manual acceptance should compare Levels 5→6, 10→20→30 and 40→50 across several seeds, judging
+recognition, breathing room and fatigue rather than speed alone. Automated inputs and rendered
+inspection do not establish human difficulty or replace physical playtesting. With no
+Level-skip control, high tiers must be earned (or started from a previously unlocked Level).
 
 ## Scheduler Fairness Model
 
-Standing first-contact lead times from either spawn (240 px from Player):
+The pure maths lives in [threat_timing.gd](scripts/threat_timing.gd); Main's `plan_pending_press()`
+applies it. For a threat spawned now at its final speed `v`:
 
-| Threat | Formula (v is that actor's final speed) | Level 1 | Level 5 | Level 9–14 | Level 20+ |
-| --- | --- | --- | --- | --- | --- |
-| Red | 202/v + 0.09 | 3.457 s | 2.615 s | 2.110 s | 1.926 s |
-| Blue | 210/v + 0.08 | 3.580 s | 2.705 s | 2.180 s | 1.989 s |
-| Barrel | 223/v | 3.232 s | 2.424 s | 1.939 s | 1.763 s |
-| Shuriken | 228/v | 3.040 s | 2.280 s | 1.824 s | 1.658 s |
+- **First contact** (`lethal_lead`): when it can first touch a standing Player.
+  Red `(240 − 38)/v + 0.09`, Blue `(240 − 30)/v + 0.08`, Barrel `(240 − 8 − 9)/v`,
+  Shuriken `(240 − 8 − 4)/v`. Assassins keep full speed through their wind-up, so its length never
+  changes these.
+- **Press window** (`press_window`): the earliest and latest press of the intended response that
+  wins, derived from geometry. Kick/Punch must be active after the assassin's body enters reach and
+  no later than its weapon's first contact. Jump/Duck must keep the Player clear for the hazard's
+  whole passage across the 16 px body. Each window is trimmed by one 60 Hz tick at both ends.
 
-Assassin travel already includes the 0.35 s moving telegraph; weapon reach adds 0.09/0.08 s.
-Hazard distances subtract Player half-width 8 and radius 9/4. Barrel uses ×1.15 speed;
-Shuriken uses ×1.25 speed.
-Higher Levels retain capped lead times; neither side changes them.
+| Press window (ms) | Red Kick | Blue Punch | Barrel Jump | Shuriken Duck |
+| --- | --- | --- | --- | --- |
+| Level 1 | 350 | 218 | 180 | 121 |
+| Level 20 | 305 | 192 | 404 | 266 |
+| Level 50+ | 293 | 185 | 461 | 304 |
 
-For each actor, let `L = spawn_time + contact_lead` and `D = intended response duration`.
-Reserve **[L − D, L + D]**, including startup and recovery. This is a conservative planning
-interval containing a successful response, not an input window where every press succeeds.
-Examples of successful planned presses: Red at strike start −0.08; Blue at strike start
-−0.06; Barrel when centre arrival is 0.410 s away; Shuriken when centre arrival is 0.271 s away.
-These place the attack hold, Jump apex or Duck clearance over the relevant encounter.
+Hazard windows widen at speed because faster hazards spend less time crossing the Player;
+their difficulty is recognition and sequencing, not tighter timing. Blue stays the tightest response.
 
-Before spawning the pending actor, require:
+**Planning.** Each admitted threat gets a planned press interval: from `response_start` (its
+planned press) to `press_latest`, which adds a human timing tolerance of 0.10 s (or the whole window
+when it is narrower, as for a slow Level 1 Shuriken). Its reservation ends at `response_end` =
+`press_latest` + the full committed action. For a pending threat:
 
-`new_response_start >= max(existing_response_ends, now + actual_remaining_commitment) + turn + 0.10`
+`ready = max(now + remaining current action, every unresolved threat's response_end)`
 
-`turn` is 0.10 s for either Assassin, zero for hazards. Same-side Assassin pairs may need
-no actual turn; reserving the opposite-side cost avoids relying on future facing choices.
-The 100 ms margin covers fixed-tick rounding and leaves recovery breathing room. The
-current action uses its actual remaining duration, not another complete action duration.
+`response_start = max(window_start, ready + turn + 0.10)`
 
-At the final speed cap, the shortest reserved approach lead is Barrel's approximately 0.943 s.
-Even after the longest fresh commitment (0.82), it leaves 0.023 s beyond the 0.10 margin. Thus zero
-post-resolution delay would still allow a valid response; the positive gap bands preserve
-readability. For unresolved pairs, every ordered type/side pair can be delayed until its
-reservations separate; no forbidden pairs or rerolls are necessary. Pair verification covers
-all 384 ordered type/side/Level cases, including overlap at eligible Levels.
+and it is admitted only if `response_start + tolerance <= window_end`. `turn` is 0.10 s before either Assassin
+(reserving the opposite-side cost avoids relying on facing). The 0.10 s margin leaves recovery
+breathing room. So if the Player presses each threat anywhere inside its planned interval, every
+later threat stays answerable. When a threat is alone, any press in its whole window works.
 
-Overlap is mathematically possible at Level 1 too. Level 6 is a pacing unlock, validated
-at base speed 85, not a claim that lower Levels are geometrically unsafe. Every spawn
-still passes the same timing/capacity gates.
+The old model reserved `[first contact − action, first contact + action]` for every threat: about
+twice the time an action really occupies. That over-reservation, not speed, set the ceiling: at
+Level 30 it delayed 84.5% of admissions.
 
-If an unresolved actor reaches its predicted first contact, no further actor is admitted
-until that overdue encounter resolves. In particular, repeatedly ducking an Assassin does
-not advance an expired forecast. Already admitted pairs remain fair for their intended
-responses; this does not guarantee recovery after arbitrary missed responses or indefinite
-Assassin evasion. Player skill is still required. The model depends on the documented
-fixed geometry/timings: retuning them requires recalculation and pair/regression tests.
+If an unresolved actor reaches its first contact, no further actor is admitted until it resolves.
+In particular, repeatedly ducking an Assassin does not advance an expired forecast. Admitted
+sequences are fair for their intended responses; this does not guarantee recovery after arbitrary
+missed responses or indefinite Assassin evasion. Player skill is still required.
+
+**Verification.** [press_window_verify.gd](tools/regression/press_window_verify.gd) checks every
+mirrored geometry constant against the scenes. It then simulates a press on every 60 Hz tick
+inside every trimmed window (1,936 presses across all threats, both sides and Levels 1–1000) and
+requires each to win, while clearly early or late presses fail. It also checks that Blue finishes
+crouching before Kick range at every wind-up. The scheduler pair matrix runs all 16 ordered pairs ×
+4 side combinations × 8 Levels (1–1000) twice: once pressing at each planned press and once at the
+latest tolerated moment (1,024 cases), with the 0.10 s margin never violated. Long seeded runs,
+late-tier pairs, pattern suites and determinism checks also pass. Retuning Player timings or
+threat geometry requires updating threat_timing.gd and rerunning these suites.
 
 ## Display / Presentation
 
@@ -773,7 +760,7 @@ drift. Restart stops all old audio before starting the fresh run. Gameplay audio
 
 ## Not Yet Implemented
 
-The full pause menu remains unimplemented and was outside the explicit presentation-only
-Milestone 35 ticket. Character/audio polish is complete and manually accepted.
+Character/audio polish is complete and manually accepted.
 Web/mobile export is implemented; physical controller, Android and iPhone/Safari device
-acceptance remains pending.
+acceptance remains pending, including hands-on use of the pause menu, Game Over menu and
+on-screen initials keys.

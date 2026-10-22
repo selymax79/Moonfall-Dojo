@@ -47,6 +47,18 @@ The F2 (restart) and F4 (Level boost) development controls were removed at the o
 on 2026-10-22. Verification records below that mention F2/F4 or F4 check counts describe the
 builds tested at that time; the current regression suites live in [tools/regression](tools/regression/README.md).
 
+Also on 2026-10-22, the owner explicitly requested and received: a pause menu (Resume / Restart /
+Quit to Menu), a Try Again / Return to Menu choice after a non-qualifying Game Over, and an
+on-screen key grid for initials (typing on keyboards; the grid for touch and controller cursors).
+These are verified with injected input and rendered captures; hands-on device acceptance is pending.
+
+Following owner playtesting past Level 30, difficulty was also extended the same day: an
+action-accurate fairness model (planned press windows instead of the old double-width
+reservations), speed rising 1 px/s per Level from Level 20 to 140 at Level 50, and assassin
+wind-ups shortening from Level 40 to 0.25 s at Level 49. This replaces Milestone 30's "bounded
+endurance tier" at Level 30; the curve now levels off at Level 50. Measured pacing is in
+[DESIGN_NOTES.md](DESIGN_NOTES.md#difficulty-shaping-and-measured-pacing); manual acceptance is pending.
+
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
 deaths from all four threats on both sides, restart/input isolation, no post-death admissions

@@ -101,10 +101,6 @@ func apply() -> void:
 			axis.axis = spec[1] if spec[0] == "axis" else spec[2]
 			axis.axis_value = spec[2] if spec[0] == "axis" else spec[3]
 			InputMap.action_add_event(action, axis)
-	# Restart is an alias of Menu Accept, not a separately conflicting binding.
-	InputMap.action_erase_events("restart_run")
-	for event in InputMap.action_get_events("menu_accept"):
-		InputMap.action_add_event("restart_run", event)
 
 
 ## Axis hysteresis suppresses repeat/jitter events until the stick returns near neutral.

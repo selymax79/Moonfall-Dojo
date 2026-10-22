@@ -7,11 +7,23 @@ enum GameState { TITLE, CONTROLS, OPTIONS, HIGH_SCORES, INITIALS_ENTRY, RUN }
 var game_state: GameState = GameState.TITLE
 var menu_selection: int = 0
 var options_selection: int = 0
+# Pause menu rows, top to bottom. Each pause opens with Resume selected so Enter simply resumes.
+# " - R" style suffixes name fixed keyboard shortcuts and are hidden on touchscreens.
+enum PauseOption { RESUME, RESTART, QUIT }
+const PAUSE_OPTION_TEXT = ["RESUME", "RESTART - R", "QUIT TO MENU - Q"]
+var pause_selection: PauseOption = PauseOption.RESUME
+# Shown after a non-qualifying run; Try Again is preselected so Enter restarts as before.
+enum GameOverOption { TRY_AGAIN, MENU }
+const GAME_OVER_OPTION_TEXT = ["TRY AGAIN - R", "RETURN TO MENU - Q"]
+var game_over_selection: GameOverOption = GameOverOption.TRY_AGAIN
 var selected_start_level: int = 1
 var initials: String = ""
+# Cursor on the on-screen key grid (MenuPointer draws it in rows of INITIAL_GRID_COLUMNS).
 var initial_choice: int = 0
+# True once directions move the grid cursor; Accept then adds that key. Typing turns it off.
 var initial_picker_active: bool = false
 const INITIAL_CHARACTERS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+const INITIAL_GRID_COLUMNS: int = 12
 # Session-only preference; touch browsers enable it on first startup.
 @export var touch_controls_enabled: bool = false
 var platform_initialized: bool = false
@@ -39,23 +51,35 @@ const ENCOUNTER_PATTERNS = [
 ]
 const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn"), preload("res://scenes/shuriken.tscn")]
 const THREAT_START_POSITION := Vector2(560, 300)
+const ThreatTiming = preload("res://scripts/threat_timing.gd")
 const BASE_APPROACH_SPEED: float = 60.0
 const APPROACH_SPEED_PER_LEVEL: float = 5.0
-# Preserve the teaching/mid-game curve through Level 14; later steps shorten recognition time.
-# Larger late speeds reduced overlap in simulations by exhausting the same fair response slots.
+# Preserve the teaching/mid-game curve through Level 14, then two small steps.
 const EARLY_APPROACH_SPEED_CAP: float = 100.0
 const EXPERIENCED_APPROACH_SPEED: float = 105.0 # Level 15–19.
-const ENDURANCE_APPROACH_SPEED: float = 110.0 # Level 20+; bounded, never an inevitable-death ramp.
+const ENDURANCE_APPROACH_SPEED: float = 110.0 # Level 20.
+# From Level 20, speed keeps climbing slowly so late Levels never go static, levelling off at
+# Level 50. Every admission still passes the fairness check, so this never forces a death.
+const LATE_SPEED_PER_LEVEL: float = 1.0
+const MAX_APPROACH_SPEED: float = 140.0
 # Barrel retains its slight speed premium over each Level's base speed.
 const BARREL_SPEED_MULTIPLIER: float = 1.15
+# From Level 40 the assassins' telegraph shortens by 0.01 s per Level to 0.25 s (about human
+# reaction time) at Level 49+. Recognition pressure only: strike timing is unaffected.
+const LATE_WINDUP_START_LEVEL: int = 40
+const WINDUP_REDUCTION_PER_LEVEL: float = 0.01
+const MIN_WINDUP_DURATION: float = 0.25
 # Pacing never overrides the timing checks. Overlap is a Level 6 difficulty choice, not a safety exemption.
 const OVERLAP_START_LEVEL: int = 6
+# Breathing room between one planned response's recovery and the next press.
 const FAIRNESS_MARGIN: float = 0.10
 const ASSASSIN_TURN_ALLOWANCE: float = 0.10
-# Intended responses in ThreatType order: Kick, Punch, Jump, Duck.
-const RESPONSE_DURATIONS = [0.40, 0.30, 0.82, 0.60]
-# Player.Action order: NONE, PUNCH, KICK, DUCK, JUMP. Keep aligned with Player's fixed timings.
-const PLAYER_ACTION_DURATIONS = [0.0, 0.30, 0.40, 0.60, 0.82]
+# Each press window is trimmed by one 60 Hz physics tick at both ends, so tick rounding can
+# never push a planned press outside the geometry that makes it succeed.
+const PRESS_WINDOW_INSET: float = 1.0 / 60.0
+# Human timing tolerance guaranteed per planned press: pressing up to this late (or anywhere in
+# a narrower window) still leaves every later planned response possible.
+const RESPONSE_TOLERANCE: float = 0.10
 const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
 var high_score: int:
@@ -134,11 +158,11 @@ func _ready() -> void:
 	game_audio.apply_volumes(records.music_volume, records.sfx_volume)
 	player.action_started.connect(game_audio.play_action)
 	player.died.connect(game_audio.begin_death)
+	if play_start_cue:
+		game_audio.play_ui("menu_confirm")
 	if start_in_run:
 		game_state = GameState.RUN
 		game_audio.play_music("gameplay")
-		if play_start_cue:
-			game_audio.play_ui("menu_confirm")
 		select_pending_threat()
 		try_spawn_pending_threat()
 	else:
@@ -188,17 +212,30 @@ func update_menu() -> void:
 	$HUD/TitleOverlay/UnlockHint.text = "Highest unlocked: %d | Menu Left / Right adjusts Start Level" % records.highest_level
 	$HUD/OptionsOverlay/ReturnHint.text = "%s to return" % cancel_hint
 	$HUD/HighScoresOverlay/ReturnHint.text = "%s to return to Title" % cancel_hint
-	$HUD/InitialsOverlay/EntryHint.text = "Type A-Z / 0-9, or directions choose [%s]\nAccept adds / submits | Cancel erases" % INITIAL_CHARACTERS[initial_choice]
-	$HUD/GameOverOverlay/RestartHint.text = (accept_hint + " TO RESTART").to_upper()
-	$HUD/PauseOverlay/ResumeHint.text = (records.controls.binding_text("pause_game", "key") + " / " + records.controls.binding_text("pause_game", "pad") + " TO RESUME").to_upper()
+	var entry_hint: Label = $HUD/InitialsOverlay/EntryHint
 	if touch_controls_enabled:
-		$HUD/GameOverOverlay/RestartHint.text = "TAP HERE TO RESTART"
-		$HUD/PauseOverlay/ResumeHint.text = "TAP HERE TO RESUME"
+		entry_hint.text = "Tap your three initials, then SAVE"
+	elif initials_grid_visible():
+		entry_hint.text = "Directions pick  •  %s adds  •  %s erases  •  or just type" % [accept_hint, cancel_hint]
+	else:
+		entry_hint.text = "Type your initials  •  Backspace erases  •  %s saves" % records.controls.binding_text("menu_accept", "key")
+	# Without the key grid, keep the hint directly under the letters.
+	entry_hint.position.y = 276.0 if initials_grid_visible() else 132.0
+	# Follows remapped keys; R and Q are fixed shortcuts shown on their own rows.
+	var resume_keys: Array[String] = []
+	for action in ["pause_game", "menu_back", "menu_accept"]:
+		var key_name: String = records.controls.binding_text(action, "key").to_upper()
+		if not key_name in resume_keys: resume_keys.append(key_name)
+	$HUD/PauseOverlay/ResumeHint.text = " / ".join(resume_keys) + ": RESUME"
+	$HUD/GameOverOverlay/RestartHint.text = records.controls.binding_text("menu_accept", "key").to_upper() + ": SELECT"
+	if touch_controls_enabled:
+		$HUD/GameOverOverlay/RestartHint.text = "TAP AN OPTION"
+		$HUD/PauseOverlay/ResumeHint.text = "TAP AN OPTION"
+	update_option_rows()
 	controls_overlay.queue_redraw()
 	# Pointer buttons replace hints only where they occupy the same space.
 	$HUD/OptionsOverlay/ReturnHint.hide()
 	$HUD/HighScoresOverlay/ReturnHint.hide()
-	$HUD/InitialsOverlay/EntryHint.hide()
 	menu_pointer.refresh()
 
 
@@ -264,41 +301,67 @@ func handle_options_input(event: InputEvent) -> void:
 			game_audio.play_ui("menu_move")
 
 
-## Direct typing remains available; menu directions activate the controller-friendly character picker.
-## Accept adds the chosen character, then submits three slots. Typing cancels picker mode.
+## Keyboards type directly. Touchscreens tap the on-screen key grid (MenuPointer), and controllers
+## move a cursor over that grid with directions, then Accept adds the key. Accept saves three slots.
 func handle_initials_input(event: InputEvent) -> void:
 	if event.is_action_pressed("menu_accept") and initials.length() == 3:
-		records.submit_score(initials, score)
-		game_audio.play_ui("high_score")
-		game_state = GameState.HIGH_SCORES
-		update_hud()
+		submit_initials()
 	elif event.is_action_pressed("menu_accept") and initial_picker_active:
-		initials += INITIAL_CHARACTERS[initial_choice]
-		game_audio.play_ui("menu_move")
-	elif event.is_action_pressed("menu_back"):
-		initials = initials.left(maxi(0, initials.length() - 1))
-		if initials.is_empty(): initial_picker_active = false
-	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_right"):
-		initial_choice = (initial_choice + 1) % INITIAL_CHARACTERS.length()
+		add_initial(INITIAL_CHARACTERS[initial_choice])
 		initial_picker_active = true
-	elif event.is_action_pressed("menu_down") or event.is_action_pressed("menu_left"):
-		initial_choice = posmod(initial_choice - 1, INITIAL_CHARACTERS.length())
+	elif event.is_action_pressed("menu_back"):
+		erase_initial()
+		if initials.is_empty(): initial_picker_active = false
+	elif event.is_action_pressed("menu_left") or event.is_action_pressed("menu_right"):
+		var step: int = -1 if event.is_action_pressed("menu_left") else 1
+		initial_choice = posmod(initial_choice + step, INITIAL_CHARACTERS.length())
+		initial_picker_active = true
+	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
+		var row_step: int = -INITIAL_GRID_COLUMNS if event.is_action_pressed("menu_up") else INITIAL_GRID_COLUMNS
+		initial_choice = posmod(initial_choice + row_step, INITIAL_CHARACTERS.length())
 		initial_picker_active = true
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_BACKSPACE or event.physical_keycode == KEY_BACKSPACE:
-			if not initials.is_empty():
-				game_audio.play_ui("menu_move")
-			initials = initials.left(maxi(0, initials.length() - 1))
-		elif initials.length() < 3 and not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
+			erase_initial()
+		elif not event.ctrl_pressed and not event.alt_pressed and not event.meta_pressed:
 			# Navigation/function keys have unicode=0; reject them before constructing a character.
 			var code: int = event.unicode
 			if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122):
-				initials += String.chr(code).to_upper()
-				initial_picker_active = false
-				game_audio.play_ui("menu_move")
+				add_initial(String.chr(code).to_upper())
 
 
-## Decide once after the death animation. Qualifying runs freeze into an input-only entry screen.
+## Shared by typing, the controller cursor and grid taps. A fourth character is ignored.
+func add_initial(character: String) -> void:
+	if initials.length() >= 3:
+		return
+	initials += character
+	initial_picker_active = false
+	game_audio.play_ui("menu_move")
+
+
+func erase_initial() -> void:
+	if not initials.is_empty():
+		game_audio.play_ui("menu_move")
+	initials = initials.left(maxi(0, initials.length() - 1))
+
+
+## Saves once three slots are filled, then shows the table. Fewer characters do nothing.
+func submit_initials() -> void:
+	if game_state != GameState.INITIALS_ENTRY or initials.length() != 3:
+		return
+	records.submit_score(initials, score)
+	game_audio.play_ui("high_score")
+	game_state = GameState.HIGH_SCORES
+	update_hud()
+
+
+## The key grid appears for touch, and for controller/arrow-key users once they press a direction.
+func initials_grid_visible() -> bool:
+	return touch_controls_enabled or initial_picker_active
+
+
+## Decide once after the death animation. Only a Top 10 score opens initials entry; any other
+## run goes straight to the Try Again / Return to Menu choice.
 func show_run_result() -> void:
 	if result_checked:
 		return
@@ -312,6 +375,8 @@ func show_run_result() -> void:
 				child.hide()
 		update_menu()
 	else:
+		game_over_selection = GameOverOption.TRY_AGAIN
+		update_option_rows()
 		game_over_overlay.show()
 		menu_pointer.refresh()
 
@@ -421,45 +486,141 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		handle_menu_input(event)
 		return
-	if event.is_action_pressed("pause_game"):
+	if get_tree().paused:
 		get_viewport().set_input_as_handled()
-		set_game_paused(not get_tree().paused)
-	elif event.is_action_pressed("restart_run") and game_over_overlay.visible and not get_tree().paused:
+		handle_pause_input(event)
+		return
+	if event.is_action_pressed("pause_game") or shortcut_key(event) == KEY_ESCAPE:
 		get_viewport().set_input_as_handled()
-		start_new_run()
+		set_game_paused(true)
+	elif game_over_overlay.visible:
+		get_viewport().set_input_as_handled()
+		handle_game_over_input(event)
 
 
-## Start Game and Game Over restart both replace the scene, avoiding a second list of reset rules.
+## While paused, Main owns all input. Menu actions follow remapping; R and Q are fixed shortcuts.
+## Pause, Esc and Back all resume, so every route into the pause menu also leaves it.
+## Esc is a fixed key rather than the Back action: a controller's Back button doubles as Kick,
+## so binding pause to Back would pause on every kick. Esc can never be a gameplay binding.
+func handle_pause_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause_game") or event.is_action_pressed("menu_back") or shortcut_key(event) == KEY_ESCAPE:
+		choose_pause_option(PauseOption.RESUME)
+	elif event.is_action_pressed("menu_accept"):
+		choose_pause_option(pause_selection)
+	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
+		pause_selection = step_selection(event, pause_selection, PAUSE_OPTION_TEXT.size()) as PauseOption
+		update_option_rows()
+	elif shortcut_key(event) == KEY_R:
+		choose_pause_option(PauseOption.RESTART)
+	elif shortcut_key(event) == KEY_Q:
+		choose_pause_option(PauseOption.QUIT)
+
+
+## Non-qualifying Game Over: Accept, R or a tap tries again; Q, controller Back or a tap returns
+## to Title. P and Esc still open the pause menu here; they are handled before this.
+func handle_game_over_input(event: InputEvent) -> void:
+	if event.is_action_pressed("menu_accept"):
+		choose_game_over_option(game_over_selection)
+	elif event.is_action_pressed("menu_back"):
+		choose_game_over_option(GameOverOption.MENU)
+	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
+		game_over_selection = step_selection(event, game_over_selection, GAME_OVER_OPTION_TEXT.size()) as GameOverOption
+		update_option_rows()
+	elif shortcut_key(event) == KEY_R:
+		choose_game_over_option(GameOverOption.TRY_AGAIN)
+	elif shortcut_key(event) == KEY_Q:
+		choose_game_over_option(GameOverOption.MENU)
+
+
+## Up/Down move a run-menu cursor with wraparound; returns the new row index.
+func step_selection(event: InputEvent, selection: int, count: int) -> int:
+	var step: int = -1 if event.is_action_pressed("menu_up") else 1
+	game_audio.play_ui("menu_move")
+	return posmod(selection + step, count)
+
+
+## Fixed Esc/R/Q shortcuts. Prefer the layout-aware keycode so they match the printed key;
+## injected test events may set only the physical code.
+func shortcut_key(event: InputEvent) -> Key:
+	if not (event is InputEventKey and event.pressed):
+		return KEY_NONE
+	return event.keycode if event.keycode != KEY_NONE else event.physical_keycode
+
+
+## Shared by keys, controller and pointer. Restart and Quit abandon the run: its score is not
+## offered for the high-score table, while Levels already unlocked stay saved.
+func choose_pause_option(option: PauseOption) -> void:
+	match option:
+		PauseOption.RESUME: set_game_paused(false)
+		PauseOption.RESTART: start_new_run()
+		PauseOption.QUIT: quit_to_title()
+
+
+func choose_game_over_option(option: GameOverOption) -> void:
+	match option:
+		GameOverOption.TRY_AGAIN: start_new_run()
+		GameOverOption.MENU: quit_to_title()
+
+
+## Draws the pause and Game Over rows with a "> <" cursor on the selected one.
+func update_option_rows() -> void:
+	set_option_rows($HUD/PauseOverlay/Options, PAUSE_OPTION_TEXT, pause_selection)
+	set_option_rows($HUD/GameOverOverlay/Options, GAME_OVER_OPTION_TEXT, game_over_selection)
+
+
+func set_option_rows(rows: Control, texts: Array, selection: int) -> void:
+	for index in texts.size():
+		var text: String = texts[index]
+		if touch_controls_enabled:
+			text = text.get_slice(" - ", 0) # Keyboard shortcut letters mean nothing on a touchscreen.
+		rows.get_child(index).text = "> %s <" % text if index == selection else text
+
+
+## Start Game, Game Over Try Again and pause-menu Restart all replace the scene,
+## avoiding a second list of reset rules.
 func start_new_run() -> void:
+	request_scene_change(true)
+
+
+## Quit to Title also uses a fresh Main, so no actor, clock or audio from the abandoned run survives.
+func quit_to_title() -> void:
+	request_scene_change(false)
+
+
+func request_scene_change(into_run: bool) -> void:
 	if run_change_pending:
 		return
 	run_change_pending = true
 	update_touch_controls()
-	# Replace outside input dispatch; multiple presses in one frame cannot create duplicate runs.
-	replace_with_run.call_deferred()
+	# Replace outside input dispatch; multiple presses in one frame cannot create duplicate scenes.
+	replace_scene.call_deferred(into_run)
 
 
-func replace_with_run() -> void:
+func replace_scene(into_run: bool) -> void:
 	var tree := get_tree()
-	var next_run = load(scene_file_path).instantiate()
-	next_run.start_in_run = true
-	next_run.play_start_cue = true
-	next_run.records = records
-	next_run.touch_controls_enabled = touch_controls_enabled
-	next_run.platform_initialized = platform_initialized
-	next_run.audio_activated = audio_activated
-	next_run.run_start_level = run_start_level if game_state == GameState.RUN else selected_start_level
-	next_run.selected_start_level = next_run.run_start_level
-	if game_state != GameState.RUN:
-		# Menu dwell/navigation must preserve an injected seed and the exact initial RNG state.
-		next_run.encounter_rng.seed = encounter_rng.seed
-		next_run.encounter_rng.state = encounter_rng.state
-	# Configure before _ready(): ordinary scene reload would return to Title instead of a run.
+	var next_scene = load(scene_file_path).instantiate()
+	next_scene.start_in_run = into_run
+	next_scene.play_start_cue = true
+	next_scene.records = records
+	next_scene.touch_controls_enabled = touch_controls_enabled
+	next_scene.platform_initialized = platform_initialized
+	next_scene.audio_activated = audio_activated
+	if into_run:
+		next_scene.run_start_level = run_start_level if game_state == GameState.RUN else selected_start_level
+		next_scene.selected_start_level = next_scene.run_start_level
+		if game_state != GameState.RUN:
+			# Menu dwell/navigation must preserve an injected seed and the exact initial RNG state.
+			next_scene.encounter_rng.seed = encounter_rng.seed
+			next_scene.encounter_rng.state = encounter_rng.state
+	else:
+		# Title keeps the Start Level this run used, so Start Game repeats it.
+		next_scene.selected_start_level = selected_start_level
+	# Configure before _ready(): an ordinary scene reload could not carry records or the start mode.
 	set_game_paused(false)
 	game_audio.stop_all()
 	tree.root.remove_child(self)
-	tree.root.add_child(next_run)
-	tree.current_scene = next_run
+	tree.root.add_child(next_scene)
+	tree.current_scene = next_scene
 	queue_free()
 
 
@@ -469,6 +630,8 @@ func set_game_paused(paused: bool) -> void:
 	get_tree().paused = paused
 	if changed:
 		game_audio.set_game_paused(paused)
+		pause_selection = PauseOption.RESUME
+		update_option_rows()
 	pause_overlay.visible = paused
 	update_touch_controls()
 	# The two centred messages share space; restore Game Over immediately when resuming.
@@ -541,51 +704,82 @@ func is_assassin(threat_type: int) -> bool:
 func get_spawn_speed(threat_type: int) -> float:
 	var base_speed: float = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), EARLY_APPROACH_SPEED_CAP)
 	if level >= 20:
-		base_speed = ENDURANCE_APPROACH_SPEED
+		base_speed = minf(ENDURANCE_APPROACH_SPEED + LATE_SPEED_PER_LEVEL * (level - 20), MAX_APPROACH_SPEED)
 	elif level >= 15:
 		base_speed = EXPERIENCED_APPROACH_SPEED
 	if threat_type == ThreatType.BARREL:
 		return base_speed * BARREL_SPEED_MULTIPLIER
-	return base_speed * 1.25 if threat_type == ThreatType.SHURIKEN else base_speed
+	if threat_type == ThreatType.SHURIKEN:
+		return base_speed * ThreatTiming.ShurikenScript.PROJECTILE_SPEED_MULTIPLIER
+	return base_speed
 
 
-## First possible contact with standing Player, derived from the existing mirrored geometry.
-## Assassin travel includes the moving 0.35 s telegraph; add only the final weapon travel.
+## Assassin telegraph length for the current Level.
+func get_windup_duration() -> float:
+	var default_windup: float = ThreatTiming.RedScript.DEFAULT_WINDUP_DURATION
+	if level < LATE_WINDUP_START_LEVEL:
+		return default_windup
+	var steps: int = level - LATE_WINDUP_START_LEVEL + 1
+	return maxf(MIN_WINDUP_DURATION, default_windup - WINDUP_REDUCTION_PER_LEVEL * steps)
+
+
+## First possible contact with a standing Player; see ThreatTiming for the geometry.
 func get_lethal_lead(threat_type: int, speed: float) -> float:
-	match threat_type:
-		ThreatType.RED: return 202.0 / speed + 0.09 # 38 px stop; blade reaches Player 90 ms into strike.
-		ThreatType.BLUE: return 210.0 / speed + 0.08 # 30 px stop; fist reaches Player 80 ms into strike.
-		ThreatType.BARREL: return 223.0 / speed # 240 px separation minus 8 px Player half-width and radius 9.
-		ThreatType.SHURIKEN: return 228.0 / speed # Radius 4; speed already includes the projectile multiplier.
-	return 0.0
+	return ThreatTiming.lethal_lead(threat_type, speed)
 
 
-## Reserve [first contact - response duration, first contact + response duration].
-## It contains a valid intended response and its full recovery, not a promise that every press in it wins.
-## A new reservation must follow every existing recovery, actual Player availability, turn and margin.
+## The fairness check. Plans one press time for the pending threat so that, together with every
+## admitted threat's planned press, the whole sequence stays survivable:
+## - the press lies inside the threat's geometric press window (trimmed by one tick at each end);
+## - it comes after every earlier planned response has fully recovered, plus a turn for assassins
+##   and FAIRNESS_MARGIN breathing room;
+## - pressing up to RESPONSE_TOLERANCE late (or anywhere in a narrower window) keeps it valid.
+## Returns the planned press time, or -1.0 when admitting the threat now could not be fair.
+func plan_pending_press() -> float:
+	var ready_at: float = encounter_time + maxf(0.0, ThreatTiming.player_action_duration(player.current_action) - player.action_elapsed)
+	for record in active_threats:
+		# A dodged/retrying Assassin invalidates its original first-strike forecast. Wait for resolution.
+		if encounter_time >= record.lethal_at:
+			return -1.0
+		ready_at = maxf(ready_at, record.response_end)
+	var window: Vector2 = ThreatTiming.press_window(pending_type, get_spawn_speed(pending_type))
+	var earliest: float = encounter_time + window.x + PRESS_WINDOW_INSET
+	var latest: float = encounter_time + window.y - PRESS_WINDOW_INSET
+	# Reserve a full turn for either Assassin side; same-side pairs may not need it.
+	var turn_time: float = ASSASSIN_TURN_ALLOWANCE if is_assassin(pending_type) else 0.0
+	var press_at: float = maxf(earliest, ready_at + turn_time + FAIRNESS_MARGIN)
+	if press_at + get_press_tolerance(pending_type) > latest:
+		return -1.0
+	return press_at
+
+
+## A narrow window (a slow Level 1 Shuriken) offers its whole width rather than the full tolerance.
+func get_press_tolerance(threat_type: int) -> float:
+	var window: Vector2 = ThreatTiming.press_window(threat_type, get_spawn_speed(threat_type))
+	return clampf(window.y - window.x - 2.0 * PRESS_WINDOW_INSET, 0.0, RESPONSE_TOLERANCE)
+
+
+## Admits the pending choice once pacing, capacity and the fairness check allow it. Each record
+## keeps its planned press interval (response_start .. response_end includes the tolerance and
+## the full committed action), which later admissions must not overlap.
 func try_spawn_pending_threat() -> void:
 	if game_state != GameState.RUN or player.is_dead or pending_type < 0 or encounter_time < next_spawn_at:
 		return
 	if active_threats.size() >= get_max_unresolved():
 		return
-	var ready_at: float = encounter_time + maxf(0.0, PLAYER_ACTION_DURATIONS[player.current_action] - player.action_elapsed)
-	for record in active_threats:
-		# A dodged/retrying Assassin invalidates its original first-strike forecast. Wait for resolution.
-		if encounter_time >= record.lethal_at:
-			return
-		ready_at = maxf(ready_at, record.response_end)
+	var press_at: float = plan_pending_press()
+	if press_at < 0.0:
+		return
 	var speed: float = get_spawn_speed(pending_type)
 	var lethal_at: float = encounter_time + get_lethal_lead(pending_type, speed)
-	var duration: float = RESPONSE_DURATIONS[pending_type]
-	var turn_time: float = ASSASSIN_TURN_ALLOWANCE if is_assassin(pending_type) else 0.0
-	# Reserve a full turn for either Assassin side; this also covers facing changes during hazards.
-	if lethal_at - duration < ready_at + turn_time + FAIRNESS_MARGIN:
-		return
+	var press_latest: float = press_at + get_press_tolerance(pending_type)
 	var actor = THREAT_SCENES[pending_type].instantiate()
 	# Main is always-processing for controls; actors must not inherit that exception.
 	actor.process_mode = Node.PROCESS_MODE_PAUSABLE
 	actor.configure_entry(pending_side)
 	actor.movement_speed = speed
+	if is_assassin(pending_type):
+		actor.windup_duration = get_windup_duration()
 	actor.position = THREAT_START_POSITION
 	actor.position.x = player.position.x + pending_side * (THREAT_START_POSITION.x - player.position.x)
 	if pending_type == ThreatType.SHURIKEN:
@@ -602,7 +796,8 @@ func try_spawn_pending_threat() -> void:
 		else:
 			actor.landed.connect(game_audio.play_impact.bind("shuriken_impact"))
 	active_threats.append({"actor": actor, "type": pending_type, "lethal_at": lethal_at,
-		"response_start": lethal_at - duration, "response_end": lethal_at + duration,
+		"response_start": press_at, "press_latest": press_latest,
+		"response_end": press_latest + ThreatTiming.response_duration(pending_type),
 		"pattern": pattern_id, "pattern_step": pattern_step if pattern_id >= 0 else -1})
 	next_spawn_at = encounter_time + get_spawn_gap()
 	if pattern_id >= 0:

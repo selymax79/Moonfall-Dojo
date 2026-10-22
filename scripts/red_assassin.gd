@@ -6,15 +6,18 @@ signal attack_started
 
 # Logical pixels and seconds. The final spacing lets Kick reach the body while Punch falls short.
 const ATTACK_DISTANCE: float = 38.0
-const WINDUP_DURATION: float = 0.35
+const DEFAULT_WINDUP_DURATION: float = 0.35
 const STRIKE_DURATION: float = 0.20
 const THRUST_DURATION: float = 0.168
 const SWORD_DRAW_BACK: float = 24.0
 const SWORD_THRUST_END: float = -4.0
 const RECOVERY_DURATION: float = 0.25
 const RETRY_DELAY: float = 0.40
-# Main supplies this before adding the scene; independent instances retain Level 1 speed.
+# Main supplies these before adding the scene; independent instances retain Level 1 values.
 var movement_speed: float = 60.0
+# The visible telegraph. Shortening it at high Levels adds recognition pressure only: the assassin
+# keeps full speed through it, so strike timing and the Player's response window are unchanged.
+var windup_duration: float = DEFAULT_WINDUP_DURATION
 # +1 enters from the right (the authored pose); -1 reflects that encounter from the left.
 var entry_side: int = 1
 
@@ -42,7 +45,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 		return
 	var strike_x: float = player_x + entry_side * ATTACK_DISTANCE
 	# Faster enemies telegraph farther out, preserving the full wind-up while still advancing.
-	var windup_distance: float = movement_speed * WINDUP_DURATION
+	var windup_distance: float = movement_speed * windup_duration
 	var remaining: float = delta
 	# Carry leftover tick time into the next phase instead of losing it at each transition.
 	if phase == Phase.APPROACH:
@@ -59,7 +62,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 	while remaining > 0.0:
 		if phase == Phase.WAIT and player_dead:
 			break
-		var duration: float = WINDUP_DURATION
+		var duration: float = windup_duration
 		match phase:
 			Phase.STRIKE: duration = STRIKE_DURATION
 			Phase.RECOVERY: duration = RECOVERY_DURATION
@@ -88,7 +91,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 func update_sword_pose() -> void:
 	match phase:
 		Phase.WINDUP:
-			sword.position.x = lerpf(0.0, SWORD_DRAW_BACK, phase_elapsed / WINDUP_DURATION)
+			sword.position.x = lerpf(0.0, SWORD_DRAW_BACK, phase_elapsed / windup_duration)
 		Phase.STRIKE:
 			sword.position.x = lerpf(SWORD_DRAW_BACK, SWORD_THRUST_END, minf(phase_elapsed / THRUST_DURATION, 1.0))
 		Phase.RECOVERY:

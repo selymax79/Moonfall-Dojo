@@ -21,12 +21,7 @@ func fingerprint(m) -> Array:
 
 func fairness_wait(m) -> bool:
 	if m.pending_type < 0 or m.encounter_time < m.next_spawn_at or m.active_threats.size() >= m.get_max_unresolved(): return false
-	var ready: float = m.encounter_time + maxf(0.0,m.PLAYER_ACTION_DURATIONS[m.player.current_action]-m.player.action_elapsed)
-	for r in m.active_threats:
-		if m.encounter_time >= r.lethal_at: return true
-		ready = maxf(ready,r.response_end)
-	var start: float = m.encounter_time + m.get_lethal_lead(m.pending_type,m.get_spawn_speed(m.pending_type))-m.RESPONSE_DURATIONS[m.pending_type]
-	return start < ready + (0.1 if m.pending_type < 2 else 0.0) + 0.1
+	return m.plan_pending_press() < 0.0
 
 func sample(level_value: int, seed_value: int, count: int) -> Array:
 	var m = fixed(level_value,seed_value)

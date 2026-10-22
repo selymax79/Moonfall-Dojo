@@ -131,8 +131,6 @@ func run() -> void:
 		remapped_button.button_index = JOY_BUTTON_LEFT_SHOULDER
 		remapped_button.pressed = true
 		check(remapped_button.is_action_pressed(action), "all actions controller remap " + action)
-		if action == "menu_accept":
-			check(remapped_button.is_action_pressed("restart_run"), "restart follows remapped accept")
 		records.save_controls()
 		missing.load_records()
 		check(missing.controls.bindings == records.controls.bindings, "all remaps reload " + action)
@@ -298,16 +296,20 @@ func run() -> void:
 	check(m.player.current_action == 1, "new binding active after restart")
 	m.player.advance_tick(1.0)
 	m.records.entries.clear()
+	m.award_successful_threat(0) # Zero scores never qualify.
 	m.player.receive_hit()
 	m.player.advance_tick(0.4)
 	m.show_run_result()
 	check(m.game_state == m.GameState.INITIALS_ENTRY and not m.touch_overlay.visible, "entry hides touch")
-	pad(JOY_BUTTON_DPAD_UP)
+	pad(JOY_BUTTON_DPAD_RIGHT)
 	pad(JOY_BUTTON_A)
 	pad(JOY_BUTTON_B)
 	check(m.initials.is_empty(), "controller initials cancel erases")
-	pad(JOY_BUTTON_DPAD_UP)
 	pad(JOY_BUTTON_DPAD_DOWN)
+	check(m.initial_choice == 1 + m.INITIAL_GRID_COLUMNS and m.initials_grid_visible(), "controller Down moves one grid row")
+	pad(JOY_BUTTON_DPAD_UP)
+	pad(JOY_BUTTON_DPAD_RIGHT)
+	pad(JOY_BUTTON_DPAD_LEFT)
 	for index in 3: pad(JOY_BUTTON_A)
 	await shot("initials_controller")
 	pad(JOY_BUTTON_A)

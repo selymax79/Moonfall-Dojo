@@ -97,8 +97,8 @@ func feature_run():
 	check(current_scene == m and m.game_over_overlay.visible, "nonqualifying no buffered or echoed restart")
 	tap(KEY_P)
 	tap(KEY_ENTER)
-	check(current_scene == m and paused and m.level == 7 and m.pending_type == -1, "dead paused Enter ignored")
-	tap(KEY_P)
+	await process_frame
+	check(current_scene == m and not paused and m.game_over_overlay.visible and m.pending_type == -1, "dead paused Enter resumes Game Over without restarting")
 	m = await restarted(m,KEY_ENTER)
 	check(m.run_start_level == 7 and m.level == 7 and m.get_multiplier_half_units() == 2 and not paused, "Game Over Enter same higher start")
 	m.free()

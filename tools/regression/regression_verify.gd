@@ -8,7 +8,10 @@ func regression_run() -> void:
 	var m = fresh()
 	var p = m.player
 	var durations: Array = [0.0,p.PUNCH_EXTENSION_DURATION+p.PUNCH_HOLD_DURATION+p.PUNCH_RECOVERY_DURATION,p.KICK_EXTENSION_DURATION+p.KICK_HOLD_DURATION+p.KICK_RECOVERY_DURATION,p.DUCK_CROUCH_DURATION+p.DUCK_HOLD_DURATION+p.DUCK_RECOVERY_DURATION,p.JUMP_DURATION]
-	for index in range(5): check(is_equal_approx(durations[index],m.PLAYER_ACTION_DURATIONS[index]),"planner action durations match Player")
+	for index in range(5):
+		check(is_equal_approx(durations[index],m.ThreatTiming.player_action_duration(index)),"planner action durations match Player")
+		# Player timings are fixed by design; a change here invalidates every fairness measurement.
+		check(is_equal_approx(durations[index],[0.0,0.30,0.40,0.60,0.82][index]),"Player action durations unchanged")
 	check(p.JUMP_HEIGHT == 55 and p.DUCK_HEIGHT_SCALE == 0.45,"Jump and Duck geometry unchanged")
 	press(p,KEY_DOWN)
 	p.advance_tick(0.08)

@@ -42,13 +42,12 @@ func press(player, key: int) -> void:
 	event.pressed = true
 	player._unhandled_input(event)
 
-func planned_press(m, record: Dictionary) -> float:
-	match record.type:
-		0: return record.lethal_at - 0.09 - 0.08
-		1: return record.lethal_at - 0.08 - 0.06
-		2: return record.lethal_at + 17.0/record.actor.movement_speed - m.player.JUMP_DURATION/2.0
-		3: return record.lethal_at + 12.0/record.actor.movement_speed - (0.0509090909+0.4918181818)/2
-	return INF
+## 0 presses at the scheduler's planned press; 1 presses as late as its tolerance allows.
+## Running both proves every admitted sequence survives anywhere inside each planned interval.
+var press_lateness: float = 0.0
+
+func planned_press(_m, record: Dictionary) -> float:
+	return lerpf(record.response_start, record.press_latest, press_lateness)
 
 func autopilot(m) -> void:
 	if m.active_threats.is_empty() or m.player.is_dead: return
@@ -107,33 +106,36 @@ func run() -> void:
 	# All 16 ordered types x four side combinations x six representative levels.
 	var pair_count: int = 0
 	var overlap_count: int = 0
-	for start_level in [1,5,6,9,10,1000]:
-		for a in range(4):
-			for b in range(4):
-				for side_a in [-1,1]:
-					for side_b in [-1,1]:
-						var m = fresh(start_level)
-						force_first(m,a,side_a)
-						var first_id: int = m.active_threats[0].actor.get_instance_id()
-						m.pending_type = b
-						m.pending_side = side_b
-						var saw_second: bool = false
-						var overlap: bool = false
-						for frame in range(900):
-							tick(m)
-							for record in m.active_threats:
-								if record.actor.get_instance_id() != first_id:
-									check(record.type == b and record.actor.entry_side == side_b,"pending pair spawned unchanged")
-									saw_second = true
-									m.pending_type = -1
-								overlap = overlap or m.active_threats.size() == 2
-							if m.player.is_dead or m.kills+m.dodges == 2: break
-						check(not m.player.is_dead and m.kills+m.dodges == 2 and saw_second,"pair survives %d->%d sides=%d,%d level=%d" % [a,b,side_a,side_b,start_level])
-						check(overlap == (start_level >= 6),"overlap unlock matches pacing")
-						pair_count += 1
-						if overlap: overlap_count += 1
-						m.free()
-						await process_frame
+	for lateness in [0.0,1.0]:
+		press_lateness = lateness
+		for start_level in [1,5,6,9,10,30,40,1000]:
+			for a in range(4):
+				for b in range(4):
+					for side_a in [-1,1]:
+						for side_b in [-1,1]:
+							var m = fresh(start_level)
+							force_first(m,a,side_a)
+							var first_id: int = m.active_threats[0].actor.get_instance_id()
+							m.pending_type = b
+							m.pending_side = side_b
+							var saw_second: bool = false
+							var overlap: bool = false
+							for frame in range(900):
+								tick(m)
+								for record in m.active_threats:
+									if record.actor.get_instance_id() != first_id:
+										check(record.type == b and record.actor.entry_side == side_b,"pending pair spawned unchanged")
+										saw_second = true
+										m.pending_type = -1
+									overlap = overlap or m.active_threats.size() == 2
+								if m.player.is_dead or m.kills+m.dodges == 2: break
+							check(not m.player.is_dead and m.kills+m.dodges == 2 and saw_second,"pair survives %d->%d sides=%d,%d level=%d" % [a,b,side_a,side_b,start_level])
+							check(overlap == (start_level >= 6),"overlap unlock matches pacing")
+							pair_count += 1
+							if overlap: overlap_count += 1
+							m.free()
+							await process_frame
+	press_lateness = 0.0
 	print("PAIR MATRIX cases=%d overlap_cases=%d minimum_margin=%.6f failures=%d" % [pair_count,overlap_count,minimum_pair_margin,failures.size()])
 	await targeted()
 	var first: Array = await long_run(180020,4000)
@@ -225,8 +227,15 @@ func targeted() -> void:
 	m.pending_type = 3
 	m.pending_side = -1
 	var state_before: int = m.encounter_rng.state
-	for frame in range(65): tick(m,false)
-	check(m.active_threats.size() == 1 and m.pending_type == 3 and m.pending_side == -1 and m.encounter_rng.state == state_before,"unsafe choice waits without reroll")
+	var blocked_frames: int = 0
+	for frame in range(300):
+		if m.active_threats.size() == 2: break
+		if m.encounter_time >= m.next_spawn_at and m.plan_pending_press() < 0.0: blocked_frames += 1
+		tick(m,false)
+		if m.active_threats.size() == 1:
+			check(m.pending_type == 3 and m.pending_side == -1 and m.encounter_rng.state == state_before,"unsafe choice waits without reroll")
+	check(blocked_frames > 0,"fixture really blocks on fairness")
+	check(m.active_threats.size() == 2 and m.active_threats[1].type == 3,"held choice admitted once fair")
 	m.free()
 	await process_frame
 	# An overdue Assassin forecast blocks future admissions instead of promising a retry's timing.

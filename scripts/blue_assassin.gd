@@ -6,7 +6,7 @@ signal attack_started
 
 # Logical pixels and seconds. Crouch finishes early enough to be low before entering Kick range.
 const ATTACK_DISTANCE: float = 30.0
-const WINDUP_DURATION: float = 0.35
+const DEFAULT_WINDUP_DURATION: float = 0.35
 const STRIKE_DURATION: float = 0.20
 const THRUST_DURATION: float = 0.16
 const CROUCH_DURATION: float = 0.08
@@ -14,8 +14,11 @@ const CROUCH_HEIGHT_SCALE: float = 0.60
 const FIST_TRAVEL: float = 20.0
 const RECOVERY_DURATION: float = 0.25
 const RETRY_DELAY: float = 0.40
-# Main supplies this before adding the scene; independent instances retain Level 1 speed.
+# Main supplies these before adding the scene; independent instances retain Level 1 values.
 var movement_speed: float = 60.0
+# The visible telegraph. Shortening it at high Levels adds recognition pressure only: the assassin
+# keeps full speed through it, so strike timing and the Player's response window are unchanged.
+var windup_duration: float = DEFAULT_WINDUP_DURATION
 # +1 enters from the right (the authored pose); -1 reflects that encounter from the left.
 var entry_side: int = 1
 
@@ -49,7 +52,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 		return
 	var strike_x: float = player_x + entry_side * ATTACK_DISTANCE
 	# Scale travel distance, not telegraph time; Blue still crouches before entering Kick range.
-	var windup_distance: float = movement_speed * WINDUP_DURATION
+	var windup_distance: float = movement_speed * windup_duration
 	var remaining: float = delta
 	# Carry leftover tick time into the next phase instead of losing it at each transition.
 	if phase == Phase.APPROACH:
@@ -66,7 +69,7 @@ func advance_tick(delta: float, player_x: float, player_dead: bool) -> void:
 	while remaining > 0.0:
 		if phase == Phase.WAIT and player_dead:
 			break
-		var duration: float = WINDUP_DURATION
+		var duration: float = windup_duration
 		match phase:
 			Phase.STRIKE: duration = STRIKE_DURATION
 			Phase.RECOVERY: duration = RECOVERY_DURATION

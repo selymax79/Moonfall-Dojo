@@ -93,6 +93,11 @@ func audio_run():
 			force_first(m,kind,side)
 			a.events.clear()
 			if kind < 2:
+				# Press at the latest valid moment so the strike (and its cue) begins before the hit lands.
+				var record: Dictionary = m.active_threats[0]
+				var latest: float = m.encounter_time + m.ThreatTiming.press_window(kind,record.actor.movement_speed).y - m.PRESS_WINDOW_INSET
+				record.response_start = latest
+				record.press_latest = latest
 				for frame in range(400):
 					tick(m)
 					if m.kills == 1 or m.player.is_dead: break

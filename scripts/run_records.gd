@@ -78,8 +78,9 @@ func get_high_score() -> int:
 	return 0 if entries.is_empty() else int(entries[0].score)
 
 
+## A run that scored nothing is void and never asks for initials, even when the table has empty slots.
 func qualifies(final_score: int) -> bool:
-	return final_score >= 0 and (entries.size() < TABLE_SIZE or final_score > int(entries.back().score))
+	return final_score > 0 and (entries.size() < TABLE_SIZE or final_score > int(entries.back().score))
 
 
 ## Strictly greater insertion keeps earlier equal scores first, including while repairing loaded data.

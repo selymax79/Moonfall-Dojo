@@ -209,20 +209,18 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="MessagePanel" type="ColorRect" parent="HUD/GameOverOverlay"]
-offset_left = 182.0
-offset_top = 151.0
-offset_right = 458.0
-offset_bottom = 231.0
+offset_left = 162.0
+offset_top = 110.0
+offset_right = 478.0
+offset_bottom = 250.0
 mouse_filter = 2
 color = Color(0.02, 0.035, 0.065, 0.94)
 
 [node name="GameOverLabel" type="Label" parent="HUD/GameOverOverlay"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 162.0
+offset_top = 120.0
+offset_right = 478.0
+offset_bottom = 150.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_fonts/font = ExtResource("7_font")
@@ -231,27 +229,51 @@ text = "GAME OVER"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="Options" type="Control" parent="HUD/GameOverOverlay"]
+anchors_preset = 0
+offset_left = 162.0
+offset_top = 160.0
+offset_right = 478.0
+offset_bottom = 212.0
+mouse_filter = 2
+
+[node name="TryAgain" type="Label" parent="HUD/GameOverOverlay/Options"]
+layout_mode = 0
+offset_top = 0.0
+offset_right = 316.0
+offset_bottom = 24.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 16
+text = "> TRY AGAIN - R <"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="ReturnToMenu" type="Label" parent="HUD/GameOverOverlay/Options"]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 316.0
+offset_bottom = 52.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 16
+text = "RETURN TO MENU - Q"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="RestartHint" type="Label" parent="HUD/GameOverOverlay"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -140.0
-offset_top = 23.0
-offset_right = 140.0
-offset_bottom = 47.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 162.0
+offset_top = 224.0
+offset_right = 478.0
+offset_bottom = 240.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 8
-text = "ENTER TO RESTART"
+text = "ENTER: SELECT"
 horizontal_alignment = 1
-
 
 [node name="PauseOverlay" type="Control" parent="HUD"]
 visible = false
@@ -273,20 +295,18 @@ mouse_filter = 2
 color = Color(0.015, 0.02, 0.04, 0.45)
 
 [node name="MessagePanel" type="ColorRect" parent="HUD/PauseOverlay"]
-offset_left = 182.0
-offset_top = 151.0
-offset_right = 458.0
-offset_bottom = 231.0
+offset_left = 162.0
+offset_top = 96.0
+offset_right = 478.0
+offset_bottom = 262.0
 mouse_filter = 2
 color = Color(0.02, 0.035, 0.065, 0.94)
 
 [node name="PausedLabel" type="Label" parent="HUD/PauseOverlay"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 162.0
+offset_top = 106.0
+offset_right = 478.0
+offset_bottom = 136.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_fonts/font = ExtResource("7_font")
@@ -295,25 +315,63 @@ text = "PAUSED"
 horizontal_alignment = 1
 vertical_alignment = 1
 
+[node name="Options" type="Control" parent="HUD/PauseOverlay"]
+anchors_preset = 0
+offset_left = 162.0
+offset_top = 144.0
+offset_right = 478.0
+offset_bottom = 228.0
+mouse_filter = 2
+
+[node name="Resume" type="Label" parent="HUD/PauseOverlay/Options"]
+layout_mode = 0
+offset_top = 0.0
+offset_right = 316.0
+offset_bottom = 24.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 16
+text = "> RESUME <"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Restart" type="Label" parent="HUD/PauseOverlay/Options"]
+layout_mode = 0
+offset_top = 28.0
+offset_right = 316.0
+offset_bottom = 52.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 16
+text = "RESTART - R"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Quit" type="Label" parent="HUD/PauseOverlay/Options"]
+layout_mode = 0
+offset_top = 56.0
+offset_right = 316.0
+offset_bottom = 80.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
+theme_override_fonts/font = ExtResource("7_font")
+theme_override_font_sizes/font_size = 16
+text = "QUIT TO MENU - Q"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="ResumeHint" type="Label" parent="HUD/PauseOverlay"]
-layout_mode = 1
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = 23.0
-offset_right = 100.0
-offset_bottom = 47.0
-grow_horizontal = 2
-grow_vertical = 2
+offset_left = 162.0
+offset_top = 236.0
+offset_right = 478.0
+offset_bottom = 252.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.9, 0.93, 1, 1)
 theme_override_fonts/font = ExtResource("7_font")
 theme_override_font_sizes/font_size = 8
-text = "P TO RESUME"
+text = "P / ESCAPE / ENTER: RESUME"
 horizontal_alignment = 1
 
 
@@ -478,9 +536,9 @@ mouse_filter = 2
 [node name="Heading" type="Label" parent="HUD/InitialsOverlay"]
 layout_mode = 0
 offset_left = 160.0
-offset_top = 141.0
+offset_top = 14.0
 offset_right = 480.0
-offset_bottom = 181.0
+offset_bottom = 50.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 28
@@ -489,22 +547,22 @@ horizontal_alignment = 1
 
 [node name="Prompt" type="Label" parent="HUD/InitialsOverlay"]
 layout_mode = 0
-offset_left = 140.0
-offset_top = 191.0
-offset_right = 500.0
-offset_bottom = 221.0
+offset_left = 80.0
+offset_top = 52.0
+offset_right = 560.0
+offset_bottom = 78.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 17
-text = "NEW HIGH SCORE — ENTER INITIALS"
+text = "NEW HIGH SCORE — ENTER YOUR INITIALS"
 horizontal_alignment = 1
 
 [node name="InitialsLabel" type="Label" parent="HUD/InitialsOverlay"]
 layout_mode = 0
 offset_left = 160.0
-offset_top = 220.0
+offset_top = 80.0
 offset_right = 480.0
-offset_bottom = 263.0
+offset_bottom = 122.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
 theme_override_font_sizes/font_size = 30
@@ -513,14 +571,14 @@ horizontal_alignment = 1
 
 [node name="EntryHint" type="Label" parent="HUD/InitialsOverlay"]
 layout_mode = 0
-offset_left = 80.0
-offset_top = 264.0
-offset_right = 560.0
-offset_bottom = 307.0
+offset_left = 40.0
+offset_top = 276.0
+offset_right = 600.0
+offset_bottom = 300.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.95, 0.85, 0.65, 1)
-theme_override_font_sizes/font_size = 14
-text = "Type A–Z / 0–9   •   Backspace to erase\nEnter to confirm three characters"
+theme_override_font_sizes/font_size = 13
+text = "Type your initials"
 horizontal_alignment = 1
 
 [node name="Audio" type="Node" parent="."]

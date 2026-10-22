@@ -114,15 +114,13 @@ func run() -> void:
 	main.game_state = main.GameState.INITIALS_ENTRY
 	main.score = 999999
 	main.update_menu()
-	tap("initial")
-	tap("next")
-	tap("initial")
+	tap("initial_key", 0)
+	tap("initial_key", 1)
 	tap("back")
-	tap("previous")
-	tap("initial")
-	tap("initial")
-	check(main.initials == "AAA", "touch initials choose add erase")
-	tap("initial")
+	tap("initial_key", 0)
+	tap("initial_key", 0)
+	check(main.initials == "AAA", "touch initials grid add erase")
+	tap("save")
 	check(main.game_state == main.GameState.HIGH_SCORES and main.records.entries[0].initials == "AAA", "touch submits qualifying score")
 	# Audio gate tests use the real fixed voice pool, without pretending to test browser permission.
 	main.game_audio.stop_all()
