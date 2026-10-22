@@ -276,29 +276,9 @@ func run() -> void:
 	check(m.player.current_action == 0 and m.touch_overlay.fingers.is_empty(), "hidden touch inert")
 	m.touch_controls_enabled = true
 	m.update_touch_controls()
-	tap(KEY_P)
-	tap(KEY_F4)
-	check(paused and m.level == 2 and m.records.highest_level == 1, "F4 paused no unlock")
-	tap(KEY_F2)
-	await process_frame
-	await process_frame
-	m = current_scene
-	m.set_physics_process(false)
-	check(not paused and m.level == 1 and m.score == 0, "F2 paused clean restart")
 	m.records.controls.bindings.punch.key = KEY_C
 	m.records.controls.apply()
 	m.records.save_controls()
-	tap(KEY_F2)
-	await process_frame
-	await process_frame
-	m = current_scene
-	m.set_physics_process(false)
-	check(m.records.controls.bindings.punch.key == KEY_C, "non-default binding survives F2")
-	tap(KEY_Z)
-	check(m.player.current_action == 0, "old binding inactive after F2")
-	tap(KEY_C)
-	check(m.player.current_action == 1, "new binding active after F2")
-	m.player.advance_tick(1.0)
 	# Non-qualifying restart, then controller-only initials entry and return to Title.
 	for index in 10: m.records.entries.append({"initials": "AAA", "score": 1000})
 	m.player.receive_hit()
@@ -311,6 +291,12 @@ func run() -> void:
 	m = current_scene
 	m.set_physics_process(false)
 	check(not m.player.is_dead and m.score == 0, "controller Game Over restart")
+	check(m.records.controls.bindings.punch.key == KEY_C, "non-default binding survives restart")
+	tap(KEY_Z)
+	check(m.player.current_action == 0, "old binding inactive after restart")
+	tap(KEY_C)
+	check(m.player.current_action == 1, "new binding active after restart")
+	m.player.advance_tick(1.0)
 	m.records.entries.clear()
 	m.player.receive_hit()
 	m.player.advance_tick(0.4)

@@ -43,6 +43,10 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 34 — Web / Mobile Version | IMPLEMENTED / DEVICE ACCEPTANCE PENDING: shared Web export, touch menus, browser lifecycle, persistence and PWA verified; real devices remain. |
 | 35 — Final Polish | COMPLETE: owner manual acceptance received; current graphical/audio polish is accepted for the present release. |
 
+The F2 (restart) and F4 (Level boost) development controls were removed at the owner's request
+on 2026-10-22. Verification records below that mention F2/F4 or F4 check counts describe the
+builds tested at that time; the current regression suites live in [tools/regression](tools/regression/README.md).
+
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
 deaths from all four threats on both sides, restart/input isolation, no post-death admissions
@@ -268,8 +272,6 @@ The project already contains or is expected to contain:
 - fair encounter scheduler
 - limited overlapping approaches at higher Levels
 - deterministic RNG
-- F2 development restart
-- F4 development Level advance
 - P Pause/Resume
 - `AGENTS.md`
 - `DESIGN_NOTES.md`
@@ -314,8 +316,6 @@ Required behaviour:
 - High Score remains visible.
 - show an obvious `GAME OVER` state.
 - offer a normal player-facing restart control.
-- restart must not require F2.
-- F2 remains available as a development shortcut.
 Prefer a simple keyboard restart initially.
 
 Do not build the title screen as part of this milestone unless absolutely necessary.
@@ -332,7 +332,6 @@ Verification must include:
 - no spawning after death
 - Score/High Score persistence behaviour
 - restart returns to clean Level 1 state
-- development controls continue working as intended
 After completion update `DESIGN_NOTES.md`.
 
 ---
@@ -364,8 +363,6 @@ Controller support comes later.
 Preserve:
 
 - pause
-- F2
-- F4
 - persistence
 - deterministic gameplay
 Update `DESIGN_NOTES.md`.
@@ -422,7 +419,6 @@ Rules:
 
 - minimum = 1
 - maximum = highest legitimately reached Level
-- development F4 boosts must NOT unlock higher starting Levels
 - highest Level persists locally
 - selecting a higher Start Level changes threat speed and scheduler difficulty appropriately
 - multiplier remains run-relative
@@ -439,7 +435,6 @@ Preserve that existing principle.
 Test:
 
 - normal Level unlock
-- F4 does not unlock
 - persistence
 - Start Level bounds
 - Level speed
@@ -460,7 +455,6 @@ Show current defaults:
 - Z = Punch
 - X = Kick
 - P = Pause
-Development controls such as F2/F4 should not be presented as normal gameplay controls.
 
 Prepare architecture for later remapping, but do not over-engineer it.
 
@@ -603,7 +597,7 @@ Potential improvements:
 - scheduler safety margin refinement
 Do not reduce fairness merely to increase difficulty.
 
-Use F4 extensively for testing.
+Use higher Start Levels and the fixed-Level regression fixtures for testing.
 
 Automated fairness verification remains mandatory after scheduler changes.
 
@@ -633,7 +627,7 @@ Implemented through the explicit combined ticket; hardware/manual acceptance rem
 - Shared named actions for keyboard, controller and touch gameplay.
 - Controller navigation for title, options, remapping, pause, Game Over and initials entry.
 - Keyboard keys and controller buttons/left-stick directions can be rebound for all thirteen
-  player-facing actions. Development F2/F4 remain fixed; restart follows Menu Accept.
+  player-facing actions. Restart follows Menu Accept.
 - Current binding display, capture/cancel, within-context conflict rejection and restore defaults.
 - Validated persistent bindings in the existing atomic ConfigFile save.
 - Hidden-by-default touch scene: four-way pad (Left/Right/Jump/Duck), Punch, Kick and Pause.
@@ -721,8 +715,6 @@ Original review areas (not an outstanding Milestone 35 checklist):
 - scaling
 - error handling
 Remove obsolete development artefacts only when they are no longer useful.
-
-F2/F4 may remain available in development builds if desired.
 
 ---
 

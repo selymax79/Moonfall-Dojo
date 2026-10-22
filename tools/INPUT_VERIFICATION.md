@@ -2,7 +2,7 @@
 
 [verify_input.gd](verify_input.gd) injects real keyboard, joystick and screen-touch events
 through Godot's viewport dispatch. It checks all thirteen bindings, remapping/reload,
-conflicts/defaults/cancel, controller navigation, initials, action parity, pause/F2/F4,
+conflicts/defaults/cancel, controller navigation, initials, action parity, pause, restart,
 touch state release, multi-pointer pad ownership and hidden-overlay isolation.
 
 Run it in a disposable **copy** of the project. The harness deliberately removes/replaces
@@ -31,7 +31,7 @@ Rendered mode saves seven 640×360 PNGs to `input_renders` in the copied project
 This implementation was tested in `.godot/input-verification` using a root-level copy of
 the harness (`res://verify_input.gd`). Existing regression harnesses were recovered from
 the previous local Milestone 31 verification directory and run against the current scenes
-and scripts. The old feature-flow assertion that Accept exits Controls was updated for the
+and scripts; they are now tracked in [regression/](regression/README.md). The old feature-flow assertion that Accept exits Controls was updated for the
 new remap screen; production behavior was not changed to satisfy that obsolete assertion. The menu-determinism
 fixture also enables the touch overlay in its longer-wait run to compare identical seeded traces.
 The roadmap records the observed check counts and remaining hardware acceptance.

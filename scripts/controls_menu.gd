@@ -56,7 +56,7 @@ func capture(event: InputEvent) -> void:
 	if device == "key" and event is InputEventKey and event.pressed:
 		if event.ctrl_pressed or event.alt_pressed or event.meta_pressed or event.shift_pressed: return
 		candidate = int(event.physical_keycode if event.physical_keycode else event.keycode)
-		if candidate in [KEY_F2, KEY_F4, KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]:
+		if candidate in [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]:
 			message = "Reserved key; choose another"
 			return
 	elif device == "pad" and event is InputEventJoypadButton and event.pressed:

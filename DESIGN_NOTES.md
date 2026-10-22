@@ -24,19 +24,19 @@ Left/Right adjusts by 5, applies immediately and saves actual changes. Zero mute
 100 uses its reference gain. Enter/Esc returns to Title.
 High Scores shows ten ranked rows, with placeholders for empty slots rather than fake saved scores.
 Menu Cancel returns from Controls; Menu Cancel or Accept returns from Options/High Scores.
-The title selection is retained. Development keys remain outside the remapping list.
+The title selection is retained.
 
 Main has explicit TITLE, CONTROLS, OPTIONS, HIGH_SCORES, INITIALS_ENTRY and RUN states.
 Non-qualifying Game Over remains a RUN substate; SceneTree pause is separate.
 Menus hide/disable gameplay actors and gate simulation before clocks, spawning or RNG draws.
-Initials Entry retains final statistics; other menus hide them. P/F2/F4 cannot pause,
-restart or boost menus/initials entry (typing P enters an initial). Gameplay presses and
+Initials Entry retains final statistics; other menus hide them. P cannot pause menus or
+initials entry (typing P enters an initial). Gameplay presses and
 held-key echoes cannot buffer into the next run. Menu dwell/navigation consumes no gameplay RNG.
 
-Start Game, non-qualifying Game Over Enter and in-run F2 share `start_new_run()`: a deferred
-replacement of Main with a fresh RUN instance. Starts use the selected level; F2/Enter restarts
-retain the current `run_start_level`. All begin unpaused at x1.0 with zero Score/Kills/Dodges/dev
-boost, an idle living Player and a fresh scheduler including its first threat and pending choice.
+Start Game and non-qualifying Game Over Enter share `start_new_run()`: a deferred
+replacement of Main with a fresh RUN instance. Starts use the selected level; Game Over restarts
+retain the current `run_start_level`. All begin unpaused at x1.0 with zero Score/Kills/Dodges,
+an idle living Player and a fresh scheduler including its first threat and pending choice.
 The shared records object survives replacement; old gameplay nodes are removed together.
 The Title-to-run handover preserves gameplay RNG seed/state, making seeded sequences independent
 of menu time. In-run restarts retain fresh RNG behaviour. There is no live-run return-to-title
@@ -48,7 +48,7 @@ control; qualifying Game Over reaches Title through the leaderboard.
 bindings. Main owns state gating and filters fresh physical presses before Player receives them.
 Player still consumes the same named events; no action clocks, collisions, scoring or scheduler
 rules change. Existing `menu_*` names are retained instead of adding parallel `ui_*` actions.
-`restart_run` mirrors Menu Accept. F2/F4 remain fixed development actions.
+`restart_run` mirrors Menu Accept. There are no development-only input actions.
 
 | Action | Keyboard default | Controller default |
 | --- | --- | --- |
@@ -81,15 +81,15 @@ its previous pad alternatives; defaults restore D-pad-plus-stick directions toge
 Duplicates within gameplay or within menu actions are rejected with a named conflict message.
 Sharing across those contexts is intentional (for example Face Down = Punch and Menu Accept).
 Esc and gamepad View/Back cancel capture and provide a recovery exit from Controls. They cannot
-be captured; Escape remains the default Menu Cancel. F2/F4 and standalone modifier keys cannot
-be rebound. Letter bindings used by menu actions take priority over direct typing in initials entry;
+be captured; Escape remains the default Menu Cancel. Standalone modifier keys cannot
+be bound. Letter bindings used by menu actions take priority over direct typing in initials entry;
 the direction-driven picker remains usable. Restore defaults resets both device columns together.
 
 RunRecords stores `[controls] bindings` in the existing `user://high_score.cfg`, using the same
 complete temporary-write/rename path as scores, unlocks and audio. No new save path or autoload
 exists. The entire thirteen-action mapping is validated before applying: missing, malformed,
 unsupported or conflicting mappings safely restore defaults without discarding other records.
-Bindings load on startup, survive F2/restart via shared records, and reload on application launch.
+Bindings load on startup, survive restart via shared records, and reload on application launch.
 A failed save leaves changes active in memory, preserves the old file and reports failure on the
 Controls screen. Audio/record saves preserve the controls section.
 
@@ -204,21 +204,20 @@ Up/Right advances through A-Z/0-9, Down/Left reverses, Accept adds the displayed
 and Cancel erases the last slot. Accept submits once three slots are filled. Direct typing exits
 picker mode, so Enter on fewer than three typed characters remains harmless. Confirmation
 inserts/saves once and shows High Scores.
-Enter/Esc then returns to Title, not directly to a new run. F2/F4 and Pause are disabled during
+Enter/Esc then returns to Title, not directly to a new run. Pause is disabled during
 entry; typing P remains a valid initial. Echoes and invalid characters are ignored.
 
 A non-qualifying score shows centred GAME OVER and **Enter to restart**.
 Menu Accept (also applied to the `restart_run` alias) accepts a fresh press only while this overlay is visible
 and unpaused. Enter during play, actions, death animation or pause is discarded, not buffered.
-Restart replaces Main with an unpaused run at its original starting level: counters/dev boost
+Restart replaces Main with an unpaused run at its original starting level: counters
 reset to zero, multiplier to x1.0, Player and scheduler reset, and old threats are removed.
-The saved leaderboard and unlocks survive both Enter and F2. High Score always means the
+The saved leaderboard and unlocks survive restart. High Score always means the
 confirmed table's top entry; a qualifying run joins it only on initials confirmation.
+There is no restart control during a live run; restarting is only offered after Game Over.
 
 P remains available during death and non-qualifying Game Over. Pause freezes the death animation
 and delays qualification/Game Over. PAUSED temporarily replaces the restart overlay; P restores it.
-F2 can restart immediately during death/pause and clears pause. F4 may change Level/multiplier
-on the dead/paused HUD without points, unlocks or renewed spawning. Both are ignored after entering initials.
 
 ## Pause
 
@@ -228,27 +227,11 @@ PAUSED overlay and P-to-resume hint appear over the HUD. Player actions/turning/
 all threat movement/attacks/cosmetics, and scheduler gameplay time freeze without wall-clock
 catch-up. Gameplay presses during pause are discarded, not queued for resume.
 
-Main uses Always processing so P/F2/F4 remain available, with one central pause guard before
+Main uses Always processing so P and menus remain available, with one central pause guard before
 its simulation tick. Player and spawned threat roots use Pausable processing, including
 Barrel/Shuriken's independent cosmetic ticks. Future gameplay/audio nodes must likewise
 use Pausable processing rather than inherit Main's control exception. Gameplay audio is
 Pausable; the separate UI voice remains Always processing for pause/resume feedback.
-
-## Development Controls
-
-- **F2:** restart the current run unpaused; reset counters, development boost and scheduler;
-  retain its chosen starting level, leaderboard and unlocks. Clears SceneTree pause before
-  replacing Main. Ignored in menus and initials entry.
-- **F4:** advance effective Level by exactly one per fresh press using a run-local `dev_level_boost`.
-  Level and run-relative multiplier refresh immediately, without changing Score, Kills, Dodges,
-  handled count, leaderboard or legitimate unlock. F4 itself never writes persistence.
-  Works during actions, approaches, empty gaps, pause and death. It cannot restart spawning after death.
-  While paused, Level/Multiplier update behind the overlay but gameplay remains frozen.
-  Ignored in menus and initials entry, so no development boost accumulates before Start.
-
-F4 updates future difficulty and overlap eligibility. A shorter gap band shortens the remaining
-pacing wait while preserving elapsed time. Pending type/side, active speeds and response reservations
-stay unchanged; every admission still passes the fairness checks. F2/scene reload resets the boost to zero.
 
 ## Threat Vocabulary
 
@@ -316,13 +299,11 @@ so the smaller 0.82 s increase was chosen. No apex hold, gravity change or input
 
 Assassin success adds one Kill; Barrel/Shuriken passage adds one Dodge.
 `handled_threats = kills + dodges`;
-`level = run_start_level + floor(handled_threats / 4) + dev_level_boost` (boost defaults to zero).
+`level = run_start_level + floor(handled_threats / 4)`.
 Each success earns 100 × current multiplier. Multiplier starts at ×1.0 and rises by
 0.5 for every three completed run-relative Levels, including higher-level starts.
 Score uses the old/current multiplier **before** incrementing the counter and recalculating
-Level. Without development boosts, threat #12 scores ×1.0, then Level 4/×1.5;
-#24 scores ×1.5, then Level 7/×2.0. Boosted Levels use the same run-relative multiplier;
-three F4 presses from Level 1 make the next success worth 150, and four real successes then reach Level 5.
+Level. Threat #12 scores ×1.0, then Level 4/×1.5; #24 scores ×1.5, then Level 7/×2.0.
 
 Main stores multiplier in integer half-units. Starting at Level 10 begins at x1.0;
 threat #12 scores x1.0 then reaches Level 13/x1.5; #24 scores x1.5 then reaches Level 16/x2.0.
@@ -350,10 +331,9 @@ High Score derives from entry #1, or zero for an empty table; no separate record
 New runs do not change it until initials are confirmed. Zero-score runs may legitimately qualify in
 an incomplete table; empty UI rows themselves are never persisted.
 
-After each real success, `earned_level = run_start_level + floor((kills + dodges) / 4)` updates
-the highest unlock if greater. F4's offset is excluded even while earning real levels during a
-boosted run. Real Level 3 boosted to effective Level 20 still unlocks only Level 3.
-Previously unlocked higher starts may unlock further levels through normal progression.
+After each real success, the run's current Level updates the highest unlock if greater.
+Level is always earned, so no separate unlock formula exists. Previously unlocked higher
+starts may unlock further levels through normal progression.
 
 Writes occur on migration, confirmed leaderboard insertion, a new legitimate highest Level,
 an actual audio-volume change, or a confirmed binding/defaults change. `[audio] music_volume` and `sfx_volume` share this file.
@@ -421,7 +401,7 @@ decision draws **start probability**, followed by either **pattern ID, starting 
 **random type, side**. Continuing a pattern draws nothing. Calling selection with an occupied
 slot is a no-op. Fairness/capacity retries, pause, menu dwell and cosmetic RNG consume no
 encounter draws. Existing seeds change sequence from Level 4 onward by design, but remain
-reproducible with the new algorithm. F4 changes future selection eligibility/frequency only;
+reproducible with the new algorithm. A Level-up changes future selection eligibility/frequency only;
 already-selected steps retain their definition, orientation and type, even across unlock tiers.
 
 Every step passes the unchanged capacity, commitment, response reservation, turn allowance
@@ -470,9 +450,9 @@ both orientations. All 64 targeted pattern/orientation/tier cases survived, pres
 100 ms minimum margin. The original 384 pair cases, 320 additional late-tier pairs and
 9,000 progressing encounters also passed. Independent RNG-oracle comparisons and repeated
 seeds matched; different seeds differed. Pause, menu-duration and cosmetic-RNG comparisons
-preserved timelines. F4 boundary checks retained pending steps and active reservations;
-death and F2 cleared continuation state. Combat/scoring, feature-flow/persistence, Pause
-and F4 regression suites passed using isolated saves and injected input.
+preserved timelines. Level-boundary checks retained pending steps and active reservations;
+death and restart cleared continuation state. Combat/scoring, feature-flow/persistence and Pause
+regression suites passed using isolated saves and injected input.
 
 Native 640×360 captures covered Levels 5/6/10/20: alternating Assassins, hazard-to-hazard,
 Assassin-to-hazard and Shuriken-to-Blue patterns. Threats remained readable, with grounded
@@ -497,7 +477,7 @@ not establish that subjective feel. Milestone 31 is implemented, manual acceptan
 With one allowed, the gap is post-resolution. With two allowed, the next approach can
 start earlier, but only after the fairness check below. Cosmetic nodes never count.
 Level changes affect future speeds/pacing; existing speed and timing reservations are immutable.
-F2 recreates the scene and all scheduler state.
+Restart recreates the scene and all scheduler state.
 
 ### Difficulty shaping and measured pacing
 
@@ -577,11 +557,11 @@ Player actions or dishonest collision geometry to make every threat equally diff
 Verification passed the original 384-pair matrix plus 320 late-tier pairs, 9,000 progressing
 encounters (4,000 repeated with identical seed/timeline; 1,000 with another seed), and all fixed-tier
 runs above. No unsafe admissions, starvation, deadlocks or cap violations occurred; the measured
-minimum reservation margin remained 100 ms. Pause, F4, higher starts, combat, scoring, persistence
-and menu/restart regressions passed. F4 boundary checks cover Levels 15/20/30 while paused as
-well as running, preserving active snapshots, pending selection, RNG and legitimate unlocks.
+minimum reservation margin remained 100 ms. Pause, higher starts, combat, scoring, persistence
+and menu/restart regressions passed. Late-tier boundary checks cover the speed and gap at Levels 15/20/30.
 
 Manual acceptance should compare Levels 5→6 and 10→15→20→30, including several different seeds.
+With no Level-skip control, reaching these tiers requires earning them (or a previously unlocked Start Level).
 Judge recognition, breathing room and fatigue rather than just speed. Automated inputs and
 rendered inspection do not establish human difficulty or replace physical-keyboard playtesting.
 
@@ -779,7 +759,7 @@ Audio hooks observe existing transitions without changing collision or action du
 - Lethal Player resolution immediately stops music and other sounds, then plays death once.
 - After the existing 0.40 s death animation, Game Over plays one short thematic sting (~1.05 s).
 - Menu movement/confirmation, accepted initials edits/confirmation and Level increases have cues.
-  Rapid F4 restarts one Level-up voice instead of stacking; dead F4 remains silent.
+  Level-up uses the single System voice, so a new cue restarts it rather than stacking.
 
 Title music continues uninterrupted through Controls, High Scores and Options. Start/restart
 switches to one gameplay loop. Initials entry and its leaderboard retain the Game Over sting/UI
@@ -787,10 +767,9 @@ without background music; returning to Title stops any remaining sting and start
 No optional turn sound or adaptive music is implemented.
 
 Pause freezes gameplay music/SFX playheads; UI alone plays the pause/resume cue. Resume continues
-the same streams without restarting music or catching up wall-clock time. A Level-up cue created
-by paused F4 stays paused until resume. Native output may drain one already-submitted audio buffer
-(~12 ms measured); subsequent paused time produces no playhead drift. F2 clears pause and stops
-all old audio before starting the fresh run. Gameplay audio callbacks never award points.
+the same streams without restarting music or catching up wall-clock time. Native output may drain
+one already-submitted audio buffer (~12 ms measured); subsequent paused time produces no playhead
+drift. Restart stops all old audio before starting the fresh run. Gameplay audio callbacks never award points.
 
 ## Not Yet Implemented
 

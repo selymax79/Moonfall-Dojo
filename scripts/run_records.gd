@@ -99,7 +99,7 @@ func submit_score(initials: String, final_score: int) -> void:
 	save_records()
 
 
-## Call only with earned progression, never the development-boosted effective Level.
+## Main calls this after each success with the run's current, always-earned Level.
 func unlock_level(earned_level: int) -> void:
 	if earned_level > highest_level:
 		highest_level = earned_level

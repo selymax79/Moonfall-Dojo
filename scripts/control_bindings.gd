@@ -50,7 +50,7 @@ func valid_binding(value: Variant) -> bool:
 	if not value is Dictionary or not value.has("key") or not value.has("pad"):
 		return false
 	var key: Variant = value.key
-	if not key is int or key <= 0 or key > KEY_LAUNCHF or key in [KEY_F2, KEY_F4, KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]:
+	if not key is int or key <= 0 or key > KEY_LAUNCHF or key in [KEY_SHIFT, KEY_CTRL, KEY_ALT, KEY_META]:
 		return false
 	if OS.find_keycode_from_string(OS.get_keycode_string(key)) != key: return false
 	var pad: Variant = value.pad

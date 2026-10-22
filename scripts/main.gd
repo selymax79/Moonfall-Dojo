@@ -65,8 +65,6 @@ var kills: int = 0
 var dodges: int = 0
 # Supplied before _ready() by Start/Restart; progression stays relative to the chosen run.
 var run_start_level: int = 1
-# Run-local testing offset: changes difficulty/multiplier without inventing handled threats.
-var dev_level_boost: int = 0
 var level: int = 1
 # Each record contains actor, type, absolute response times and pattern provenance for tracing.
 # Only unresolved gameplay belongs here; at most two records keeps ownership explicit.
@@ -332,7 +330,7 @@ func update_hud() -> void:
 	run_stats.fit_values()
 
 
-## Two half-units mean x1.0; each three effective run levels (including dev boosts) add a half-unit.
+## Two half-units mean x1.0; each three Levels survived in this run add a half-unit.
 func get_multiplier_half_units() -> int:
 	# Truncation intentionally counts only complete groups of three levels.
 	@warning_ignore("integer_division")
@@ -353,16 +351,15 @@ func award_successful_threat(threat_type: ThreatType) -> void:
 	recalculate_level()
 	if level > previous_level:
 		game_audio.play_level_up()
-	@warning_ignore("integer_division")
-	records.unlock_level(run_start_level + (kills + dodges) / HANDLED_THREATS_PER_LEVEL)
+	records.unlock_level(level)
 	update_hud()
 
 
-## Earned progression and development boosts share one formula, so real successes retain the boost.
+## Level is always earned: the chosen start plus one per four handled threats (kills + dodges).
 func recalculate_level() -> void:
 	var handled_threats: int = kills + dodges
 	@warning_ignore("integer_division")
-	level = run_start_level + handled_threats / HANDLED_THREATS_PER_LEVEL + dev_level_boost
+	level = run_start_level + handled_threats / HANDLED_THREATS_PER_LEVEL
 
 
 ## Main always processes controls; Player and threat nodes are pausable and receive no paused input.
@@ -427,26 +424,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause_game"):
 		get_viewport().set_input_as_handled()
 		set_game_paused(not get_tree().paused)
-	elif event.is_action_pressed("dev_restart"):
-		get_viewport().set_input_as_handled()
-		start_new_run()
 	elif event.is_action_pressed("restart_run") and game_over_overlay.visible and not get_tree().paused:
 		get_viewport().set_input_as_handled()
 		start_new_run()
-	elif event.is_action_pressed("dev_level_up"):
-		get_viewport().set_input_as_handled()
-		var previous_gap: float = get_spawn_gap()
-		dev_level_boost += 1
-		recalculate_level()
-		game_audio.play_level_up()
-		# Preserve elapsed gap time when crossing a pacing band. Only this admission gate changes;
-		# actor reservations, pending selection and fairness checks remain untouched.
-		if not player.is_dead and next_spawn_at > encounter_time:
-			next_spawn_at = maxf(encounter_time, next_spawn_at + get_spawn_gap() - previous_gap)
-		update_hud()
 
 
-## Start Game, Enter restart and F2 all replace the scene, avoiding a second list of reset rules.
+## Start Game and Game Over restart both replace the scene, avoiding a second list of reset rules.
 func start_new_run() -> void:
 	if run_change_pending:
 		return
@@ -493,7 +476,7 @@ func set_game_paused(paused: bool) -> void:
 	menu_pointer.refresh()
 
 
-## Only an empty pending slot can select. Retries, F4, pause and menus never consume these draws.
+## Only an empty pending slot can select. Retries, pause and menus never consume these draws.
 ## Levels 1–3 retain type/side draws. Later: start roll, then pattern ID/orientation OR random type/side.
 ## Continuing a selected pattern needs no RNG, even if its next step waits through a Level change.
 func select_pending_threat() -> void:
@@ -651,7 +634,7 @@ func cancel_pending_spawn() -> void:
 ## All actors move first, then Player attacks, then lethal checks, then surviving hazard rewards.
 ## Separate passes preserve Player-first Assassin priority regardless of the array's encounter order.
 func _physics_process(delta: float) -> void:
-	# Main handles menus/P/F2/F4; simulation exists only in an unpaused run with no restart pending.
+	# Main handles menus and pause; simulation exists only in an unpaused run with no restart pending.
 	if game_state != GameState.RUN or run_change_pending or get_tree().paused:
 		return
 	encounter_time += delta

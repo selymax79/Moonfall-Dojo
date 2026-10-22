@@ -105,7 +105,7 @@ func play_impact(cue: String) -> void:
 
 func play_level_up() -> void:
 	if not death_started:
-		# One system voice restarts the flourish instead of stacking rapid F4 presses.
+		# Shares the single System voice with the Game Over sting; a new cue restarts it, never stacks.
 		_play($System, "level_up")
 
 func start_hazard(owner_id: int, kind: int) -> void:
@@ -137,7 +137,7 @@ func play_game_over() -> void:
 	result_played = true
 	_play($System, "game_over")
 
-## Native pausing freezes playheads. Explicit stream pause also covers F4 starting a cue while paused.
+## Native pausing freezes playheads. Explicit stream pause also keeps any cue started while paused silent.
 ## The always-processing UI voice alone may play the pause/unpause tone.
 func set_game_paused(paused: bool) -> void:
 	for voice in get_children():
