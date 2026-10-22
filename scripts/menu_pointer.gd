@@ -1,4 +1,6 @@
-## Direct pointer targets for the existing menus. Main remains the sole menu state owner.
+## Tap/click support for every menu: builds hit areas ("targets") for the current screen and
+## turns a completed tap into the same command keyboard/controller input would give.
+## Main remains the sole owner of menu state; this script owns only pointer gestures.
 ## Activation happens on release inside the original target; drags/cancels never activate it.
 extends Control
 
@@ -48,12 +50,14 @@ func refresh() -> void:
 		main.GameState.CONTROLS:
 			var menu = main.controls_overlay
 			if not menu.listening:
-				var first: int = clampi(menu.selection - 3, 0, 9)
-				for row in 7:
-					add_target(Rect2(18, 85 + row * 25, 398, 25), "key_binding", first + row)
-					add_target(Rect2(416, 85 + row * 25, 206, 25), "pad_binding", first + row)
-				add_target(Rect2(24, 304, 120, 36), "page", -7, "PREVIOUS")
-				add_target(Rect2(156, 304, 120, 36), "page", 7, "NEXT")
+				# Same rows the Controls view draws, so taps always land on what is shown.
+				var first: int = menu.first_visible_row()
+				for row in menu.VISIBLE_ROWS:
+					var y: float = menu.ROW_TOP + row * menu.ROW_HEIGHT
+					add_target(Rect2(18, y, 398, menu.ROW_HEIGHT), "key_binding", first + row)
+					add_target(Rect2(416, y, 206, menu.ROW_HEIGHT), "pad_binding", first + row)
+				add_target(Rect2(24, 304, 120, 36), "page", -menu.VISIBLE_ROWS, "PREVIOUS")
+				add_target(Rect2(156, 304, 120, 36), "page", menu.VISIBLE_ROWS, "NEXT")
 			add_target(Rect2(436, 304, 180, 36), "controls_back", 0, "CANCEL" if menu.listening else "BACK")
 		main.GameState.RUN:
 			if main.get_tree().paused:
@@ -129,7 +133,7 @@ func activate(target: Dictionary) -> void:
 			main.controls_overlay.selection = target.value
 			main.controls_overlay.device = "key" if target.command == "key_binding" else "pad"
 			action("menu_accept")
-		"page": main.controls_overlay.selection = clampi(main.controls_overlay.selection + target.value, 0, 15)
+		"page": main.controls_overlay.selection = clampi(main.controls_overlay.selection + target.value, 0, main.controls_overlay.ROW_COUNT - 1)
 		"controls_back":
 			# Escape is the existing remapping recovery/cancel path, independent of user bindings.
 			var event := InputEventKey.new()
@@ -148,7 +152,7 @@ func _draw() -> void:
 		var ink: Color = INK
 		var fill := Color(0.035, 0.055, 0.09)
 		# The controller cursor highlights its grid key; SAVE stays dim until three slots are filled.
-		if target.command == "initial_key" and main.initial_picker_active and target.value == main.initial_choice:
+		if target.command == "initial_key" and main.initial_cursor_active and target.value == main.initial_choice:
 			fill = Color(0.30, 0.25, 0.14)
 		elif target.command == "save" and main.initials.length() < 3:
 			ink = Color(INK, 0.35)

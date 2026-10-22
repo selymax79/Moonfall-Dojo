@@ -1,39 +1,23 @@
-## A rolling floor obstacle. Main advances Player first, then movement and direct collision queries.
-## Main never sends Player attacks here; it awards a Dodge and score once when safe passage completes.
-## Radius 9 and the 0.82 s Jump give about 247 ms of input opportunity at Level 1 (69 px/s).
-extends Area2D
+## Barrel: rolls along the floor, so it must be Jumped. Shared passage and collision rules come
+## from hazard.gd; this script rolls the artwork and plays the harmless roll-on and explosion.
+extends "res://scripts/hazard.gd"
 
-# Cosmetic transition only; Main has already awarded the dodge and released gameplay ownership.
+# Cosmetic only: emitted when the explosion starts, after the Dodge was already awarded.
 signal exploded
 
-enum Phase { ACTIVE, DEPARTING, EXPLODING }
-# Cosmetic clocks begin after gameplay resolution and never delay Main's next encounter.
+# Main multiplies each Level's base speed by this. A faster Barrel crosses the Player sooner,
+# which widens the Jump window; re-run press_window_verify.gd after changing it.
+const SPEED_MULTIPLIER: float = 1.15
+# Cosmetic aftermath lengths in seconds; they never delay the next threat.
 const DEPARTURE_DURATION: float = 0.50
 const EXPLOSION_DURATION: float = 0.40
+
+enum Phase { ACTIVE, DEPARTING, EXPLODING }
 var phase: Phase = Phase.ACTIVE
 var effect_elapsed: float = 0.0
 
-# Main snapshots Level speed times 1.15 before entering the tree; later Level changes cannot alter it.
-var movement_speed: float = 60.0
-# +1 enters from the right; -1 reflects the travel direction from the left.
-var entry_side: int = 1
-var is_complete: bool = false
 
-@onready var body_shape: CollisionShape2D = $BodyShape
-@onready var visuals: Node2D = $Visuals
-
-
-func _ready() -> void:
-	# Main exclusively owns active movement; enable our tick only after releasing gameplay ownership.
-	set_physics_process(false)
-
-
-func configure_entry(side: int) -> void:
-	assert(side == 1 or side == -1)
-	entry_side = side
-
-
-## Roll only the artwork: distance/radius gives the rotation without rotating the collision shape.
+## Main's active tick. Only the artwork rotates (distance / radius); collision never rotates.
 func advance_tick(delta: float) -> void:
 	if is_complete:
 		return
@@ -46,26 +30,11 @@ func roll(delta: float) -> void:
 	visuals.rotation += travel / body_shape.shape.radius
 
 
-## The adaptive Player rectangle decides survival, regardless of action or facing.
-## Check damage before passage so a lethal collision cannot also complete the encounter.
-func resolve_contact(player: Node2D) -> void:
-	if is_complete or player.is_dead:
-		return
-	if body_shape.shape.collide(body_shape.global_transform, player.hurtbox.shape, player.hurtbox.global_transform):
-		player.receive_hit()
-		return
-	# Both actors use unscaled world-space collision shapes. Require the whole circle to pass
-	# the far edge of Player's body, even if Player is still airborne when it gets there.
-	var separation: float = entry_side * (body_shape.global_position.x - player.hurtbox.global_position.x)
-	var passage_distance: float = body_shape.shape.radius + player.hurtbox.shape.size.x / 2.0
-	if separation < -passage_distance:
-		is_complete = true
-		phase = Phase.DEPARTING
-		# Defer handover so the resolving tick cannot move the Barrel twice.
-		set_physics_process.call_deferred(true)
+func begin_aftermath() -> void:
+	phase = Phase.DEPARTING
 
 
-## This tick is presentation-only. Completion guards permanently exclude all further collision.
+## Cosmetic tick after handover: roll on briefly, then explode and free itself.
 func _physics_process(delta: float) -> void:
 	var remaining: float = delta
 	if phase == Phase.DEPARTING:

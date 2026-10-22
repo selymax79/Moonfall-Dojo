@@ -1,10 +1,23 @@
-## Named InputMap bindings and fresh physical presses; persistence belongs to RunRecords.
+## The thirteen player-facing input actions: their defaults, validation, conflict rules, the
+## InputMap they install, and the "fresh press" filter that stops held keys, stick drift and
+## auto-repeat from re-triggering actions. Persistence belongs to RunRecords.
 extends RefCounted
 
+# Left-stick hysteresis: a direction counts as pressed beyond STICK_PRESS and re-arms only
+# after returning inside STICK_RELEASE, so jitter around one threshold cannot repeat it.
+const STICK_PRESS: float = 0.6
+const STICK_RELEASE: float = 0.3
+
+# Parallel arrays, one entry per action in this order (Controls lists them the same way).
 const ACTIONS = ["turn_left", "turn_right", "jump", "duck", "punch", "kick", "pause_game", "menu_up", "menu_down", "menu_left", "menu_right", "menu_accept", "menu_back"]
 const LABELS = ["Turn Left", "Turn Right", "Jump", "Duck", "Punch", "Kick", "Pause", "Menu Up", "Menu Down", "Menu Left", "Menu Right", "Menu Accept", "Menu Cancel"]
+# TUNING: default bindings (Controls > Restore ALL defaults returns to these).
+# Default keyboard key per action.
 const KEYS = [KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN, KEY_Z, KEY_X, KEY_P, KEY_UP, KEY_DOWN, KEY_LEFT, KEY_RIGHT, KEY_ENTER, KEY_ESCAPE]
+# Default gamepad button per action (Godot's standard layout: A = Face Down, B = Face Right...).
 const BUTTONS = [JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_Y, JOY_BUTTON_X, JOY_BUTTON_A, JOY_BUTTON_B, JOY_BUTTON_START, JOY_BUTTON_DPAD_UP, JOY_BUTTON_DPAD_DOWN, JOY_BUTTON_DPAD_LEFT, JOY_BUTTON_DPAD_RIGHT, JOY_BUTTON_A, JOY_BUTTON_B]
+# Actions that also follow the left stick: action index -> [axis, direction]. Axis 0 is
+# horizontal, 1 vertical; -1 is left/up. Turns and menu directions use it; attacks do not.
 const AXES = {0: [0, -1], 1: [0, 1], 7: [1, -1], 8: [1, 1], 9: [0, -1], 10: [0, 1]}
 var bindings: Dictionary = {}
 # Kept across Main replacement: a held stick/button cannot become a new run's first action.
@@ -85,7 +98,7 @@ func conflict(action: String, device: String, candidate: Variant) -> String:
 func apply() -> void:
 	for action in ACTIONS:
 		InputMap.action_erase_events(action)
-		InputMap.action_set_deadzone(action, 0.6)
+		InputMap.action_set_deadzone(action, STICK_PRESS)
 		var key := InputEventKey.new()
 		key.physical_keycode = bindings[action].key
 		InputMap.action_add_event(action, key)
@@ -113,10 +126,10 @@ func fresh(event: InputEvent) -> bool:
 		token = "j%d:b%d" % [event.device, event.button_index]
 	elif event is InputEventJoypadMotion:
 		token = "j%d:a%d" % [event.device, event.axis]
-		if absf(event.axis_value) < 0.3:
+		if absf(event.axis_value) < STICK_RELEASE:
 			held.erase(token)
 			return false
-		if absf(event.axis_value) < 0.6: return false
+		if absf(event.axis_value) < STICK_PRESS: return false
 		var direction := signf(event.axis_value)
 		if held.get(token, 0) == direction: return false
 		held[token] = direction

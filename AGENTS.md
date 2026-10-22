@@ -152,12 +152,15 @@ Allow both keyboard and controller controls to be remapped.
 
 | Action | Default keyboard | Default controller |
 | --- | --- | --- |
-| Turn left/right | Left/Right arrows | D-pad Left/Right |
-| Jump | Up arrow | D-pad Up |
-| Duck | Down arrow | D-pad Down |
-| Punch | Z | X/Square-style face button |
-| Kick | X | A/Cross-style face button |
-| Pause | Escape | Not specified |
+| Turn left/right | Left/Right arrows | D-pad Left/Right or left stick |
+| Jump | Up arrow | Face Up (Y/Triangle) |
+| Duck | Down arrow | Face Left (X/Square) |
+| Punch | Z | Face Down (A/Cross) |
+| Kick | X | Face Right (B/Circle) |
+| Pause | P (Escape also pauses and resumes) | Start |
+
+The controller column follows the owner-authorised Milestone 32/33 ticket, and P/Escape pausing
+the owner's 2026-10-22 request; both supersede this table's original proposal.
 
 ### Sound Options
 

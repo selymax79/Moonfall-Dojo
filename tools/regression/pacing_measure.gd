@@ -43,7 +43,7 @@ func measure() -> void:
 			if m.player.is_dead or m.kills + m.dodges == HANDLED: break
 		check(not m.player.is_dead and m.kills + m.dodges == HANDLED, "pacing run survives level %d" % level_value)
 		var span: float = spawn_times[-1] - spawn_times[0]
-		print("PACING level=%d speed=%.1f mean_spawn_gap=%.3f threats_per_s=%.3f overlap=%.1f%%" % [level_value, m.get_spawn_speed(0), span / (spawn_times.size() - 1), (spawn_times.size() - 1) / span, 100.0 * overlap / frames])
+		print("PACING level=%d speed=%.1f mean_spawn_gap=%.3f threats_per_s=%.3f overlap=%.1f%%" % [level_value, m.get_base_speed(), span / (spawn_times.size() - 1), (spawn_times.size() - 1) / span, 100.0 * overlap / frames])
 		m.free()
 		await process_frame
 	print("PACING_RESULT checks=", checks, " failures=", failures)

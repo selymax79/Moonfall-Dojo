@@ -1,5 +1,9 @@
-## Scene-local playback only: fixed voices, explicit game hooks, no gameplay clocks or RNG.
+## Scene-local playback only: nine fixed voices under Main, explicit game hooks, no gameplay
+## clocks or RNG. Per-voice loudness is set on the voices in main.tscn (volume_db); the player's
+## Music/SFX settings scale the buses (apply_volumes).
 extends Node
+
+const ThreatType = preload("res://scripts/threat_timing.gd").ThreatType
 
 const CLIPS = {
 	"punch": preload("res://audio/sfx/punch.wav"),
@@ -86,10 +90,10 @@ func play_action(action: int) -> void:
 
 func play_attack(kind: int) -> void:
 	if not death_started:
-		_play($Danger, "red_attack" if kind == 0 else "blue_attack")
+		_play($Danger, "red_attack" if kind == ThreatType.RED else "blue_attack")
 
 func play_defeat(kind: int) -> void:
-	play_impact("red_defeated" if kind == 0 else "blue_defeated")
+	play_impact("red_defeated" if kind == ThreatType.RED else "blue_defeated")
 
 ## Two bounded voices let cosmetic impact and a successful strike coexist without cutting danger cues.
 func play_impact(cue: String) -> void:
@@ -115,7 +119,7 @@ func start_hazard(owner_id: int, kind: int) -> void:
 	if index < 0:
 		return
 	hazard_owners[index] = owner_id
-	_play(hazards[index], "barrel_roll" if kind == 2 else "shuriken_flight")
+	_play(hazards[index], "barrel_roll" if kind == ThreatType.BARREL else "shuriken_flight")
 
 func stop_hazard(owner_id: int) -> void:
 	var index: int = hazard_owners.find(owner_id)

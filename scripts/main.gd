@@ -1,5 +1,8 @@
-## Schedules up to two unresolved threats with separate response/recovery reservations.
-## Main owns gameplay; resolved hazards run their harmless cosmetic aftermath independently.
+## The game's coordinator. One Main instance is one screen session: Title and its menus, or a run.
+## It owns the state machine (GameState), menu/pause/Game Over input, the fair threat scheduler,
+## scoring and Level progression, and the per-tick combat order. Starting, restarting or quitting
+## a run replaces this node with a fresh instance (replace_scene), so no reset list is needed.
+## Pure timing maths lives in threat_timing.gd; records/settings in run_records.gd.
 extends Node2D
 
 # RUN includes death and non-qualifying Game Over; pause remains a SceneTree concern.
@@ -21,7 +24,7 @@ var initials: String = ""
 # Cursor on the on-screen key grid (MenuPointer draws it in rows of INITIAL_GRID_COLUMNS).
 var initial_choice: int = 0
 # True once directions move the grid cursor; Accept then adds that key. Typing turns it off.
-var initial_picker_active: bool = false
+var initial_cursor_active: bool = false
 const INITIAL_CHARACTERS := "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 const INITIAL_GRID_COLUMNS: int = 12
 # Session-only preference; touch browsers enable it on first startup.
@@ -36,8 +39,18 @@ var start_in_run: bool = false
 var play_start_cue: bool = false
 var run_change_pending: bool = false
 
-enum ThreatType { RED, BLUE, BARREL, SHURIKEN }
-# Two-step requests, always START side then OPPOSITE. Every unlocked pool balances all four types.
+const ThreatTiming = preload("res://scripts/threat_timing.gd")
+const ThreatType = ThreatTiming.ThreatType
+const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn"), preload("res://scenes/shuriken.tscn")]
+
+# ============================================================================================
+# TUNING. Difficulty, pacing and scoring knobs. Pacing and scoring values are free to change.
+# Speed, wind-up and fairness values feed the fairness check: after changing them, re-run
+# press_window_verify.gd, scheduler_verify.gd and late_verify.gd, and compare pacing_measure.gd.
+# More knobs: get_spawn_gap() and get_pattern_start_chance() below; Player timings in player.gd.
+# ============================================================================================
+
+# Two-step patterns, always START side then OPPOSITE. Every unlocked pool balances all four types.
 # Order groups unlocks: first 2 at Level 4, first 4 at Level 7, all 8 at Level 10.
 const ENCOUNTER_PATTERNS = [
 	[ThreatType.RED, ThreatType.BLUE],
@@ -49,37 +62,46 @@ const ENCOUNTER_PATTERNS = [
 	[ThreatType.BARREL, ThreatType.RED],
 	[ThreatType.SHURIKEN, ThreatType.BLUE],
 ]
-const THREAT_SCENES = [preload("res://scenes/red_assassin.tscn"), preload("res://scenes/blue_assassin.tscn"), preload("res://scenes/barrel.tscn"), preload("res://scenes/shuriken.tscn")]
-const THREAT_START_POSITION := Vector2(560, 300)
-const ThreatTiming = preload("res://scripts/threat_timing.gd")
+# Base threat speed (logical px/s) by Level: +5 per Level from 60 to 100 (Level 9), held to
+# Level 14, 105 for Levels 15-19, then +1 per Level from 110 at Level 20 to MAX at Level 50.
+# Barrel and Shuriken multiply it (barrel.gd / shuriken.gd SPEED_MULTIPLIER). The curve was tuned
+# for threats appearing TUNED_APPROACH_DISTANCE from the Player; they now enter from just off
+# screen, so get_spawn_speed() scales each type by its longer travel, keeping the time from
+# appearing to reaching the Player as tuned.
+const TUNED_APPROACH_DISTANCE: float = 240.0
 const BASE_APPROACH_SPEED: float = 60.0
 const APPROACH_SPEED_PER_LEVEL: float = 5.0
-# Preserve the teaching/mid-game curve through Level 14, then two small steps.
 const EARLY_APPROACH_SPEED_CAP: float = 100.0
 const EXPERIENCED_APPROACH_SPEED: float = 105.0 # Level 15–19.
 const ENDURANCE_APPROACH_SPEED: float = 110.0 # Level 20.
-# From Level 20, speed keeps climbing slowly so late Levels never go static, levelling off at
-# Level 50. Every admission still passes the fairness check, so this never forces a death.
 const LATE_SPEED_PER_LEVEL: float = 1.0
+# The hardest speed. Raising it extends the difficulty climb past Level 50.
 const MAX_APPROACH_SPEED: float = 140.0
-# Barrel retains its slight speed premium over each Level's base speed.
-const BARREL_SPEED_MULTIPLIER: float = 1.15
-# From Level 40 the assassins' telegraph shortens by 0.01 s per Level to 0.25 s (about human
-# reaction time) at Level 49+. Recognition pressure only: strike timing is unaffected.
+# Assassin telegraph: from LATE_WINDUP_START_LEVEL it shortens by WINDUP_REDUCTION_PER_LEVEL per
+# Level down to MIN_WINDUP_DURATION (about human reaction time). Recognition pressure only:
+# strike timing and the press window are unchanged (assassin.gd DEFAULT_WINDUP_DURATION is 0.35).
 const LATE_WINDUP_START_LEVEL: int = 40
 const WINDUP_REDUCTION_PER_LEVEL: float = 0.01
 const MIN_WINDUP_DURATION: float = 0.25
-# Pacing never overrides the timing checks. Overlap is a Level 6 difficulty choice, not a safety exemption.
+# From this Level two threats may be unresolved at once (always still subject to fairness).
 const OVERLAP_START_LEVEL: int = 6
-# Breathing room between one planned response's recovery and the next press.
-const FAIRNESS_MARGIN: float = 0.10
+# Fairness check (see plan_pending_press). Lower values pack threats closer together.
+# Reaction allowance: time to notice the next threat and react, between finishing one planned
+# response and the next planned press. Generous when two threats first overlap, tightening
+# with Level so the climb continues; it never drops below the late value.
+const REACTION_ALLOWANCE_EARLY: float = 0.60 # at OVERLAP_START_LEVEL and below
+const REACTION_ALLOWANCE_LATE: float = 0.25 # from REACTION_TIGHTEST_LEVEL on (about human reaction time)
+const REACTION_TIGHTEST_LEVEL: int = 50 # matches the speed curve, so both keep climbing to Level 50
+# Reserved before every assassin, in case the Player must turn round.
 const ASSASSIN_TURN_ALLOWANCE: float = 0.10
-# Each press window is trimmed by one 60 Hz physics tick at both ends, so tick rounding can
-# never push a planned press outside the geometry that makes it succeed.
-const PRESS_WINDOW_INSET: float = 1.0 / 60.0
-# Human timing tolerance guaranteed per planned press: pressing up to this late (or anywhere in
-# a narrower window) still leaves every later planned response possible.
+# Human timing slack guaranteed per planned press: pressing up to this late (or anywhere in a
+# narrower window) still leaves every later planned response possible.
 const RESPONSE_TOLERANCE: float = 0.10
+# Safety, not tuning: each press window is trimmed by one 60 Hz physics tick at both ends so
+# tick rounding can never push a planned press outside the geometry that makes it succeed.
+const PRESS_WINDOW_INSET: float = 1.0 / 60.0
+# Scoring and progression. The multiplier rises x0.5 every 3 Levels survived (see
+# get_multiplier_half_units); AGENTS.md fixes these rules, so change them deliberately.
 const POINTS_PER_THREAT: int = 100
 const HANDLED_THREATS_PER_LEVEL: int = 4
 var high_score: int:
@@ -90,8 +112,10 @@ var dodges: int = 0
 # Supplied before _ready() by Start/Restart; progression stays relative to the chosen run.
 var run_start_level: int = 1
 var level: int = 1
-# Each record contains actor, type, absolute response times and pattern provenance for tracing.
-# Only unresolved gameplay belongs here; at most two records keeps ownership explicit.
+# Unresolved threats only (at most two). Each record: actor, type, lethal_at (first possible
+# contact), response_start/press_latest (planned press interval), response_end (planned press
+# interval plus the full action) and pattern/pattern_step (diagnostic provenance). Times are
+# absolute encounter_time seconds.
 var active_threats: Array[Dictionary] = []
 var encounter_time: float = 0.0
 var next_spawn_at: float = 0.0
@@ -177,7 +201,8 @@ func _ready() -> void:
 	game_audio.set_browser_suspended(web_platform.unavailable)
 
 
-## Visibility and selection have no effect on gameplay clocks or RNG.
+## Redraws every overlay for the current state. Visibility and text only: no gameplay clock,
+## spawn or RNG draw happens here. Called after any menu input or state change.
 func update_menu() -> void:
 	update_touch_controls()
 	$Environment.set_active(game_state == GameState.RUN)
@@ -187,56 +212,84 @@ func update_menu() -> void:
 	high_scores_overlay.visible = game_state == GameState.HIGH_SCORES
 	initials_overlay.visible = game_state == GameState.INITIALS_ENTRY
 	run_stats.visible = game_state == GameState.RUN or game_state == GameState.INITIALS_ENTRY
+	update_title_menu()
+	update_high_score_table()
+	update_initials_view()
+	$HUD/OptionsOverlay/MusicVolume.text = ("> Music Volume  %d <" if options_selection == 0 else "Music Volume  %d") % records.music_volume
+	$HUD/OptionsOverlay/SFXVolume.text = ("> SFX Volume  %d <" if options_selection == 1 else "SFX Volume  %d") % records.sfx_volume
+	update_run_menu_hints()
+	update_option_rows()
+	controls_overlay.queue_redraw()
+	menu_pointer.refresh()
+
+
+## Title rows, in order. Index 1 is the Start Level selector.
+func title_choices() -> Array[String]:
+	return ["START GAME", "START LEVEL  %d" % selected_start_level, "HIGH SCORES", "CONTROLS", "OPTIONS"]
+
+
+func update_title_menu() -> void:
 	title_high_score.text = "High Score %06d" % high_score
-	var choices: Array[String] = ["START GAME", "START LEVEL  %d" % selected_start_level, "HIGH SCORES", "CONTROLS", "OPTIONS"]
+	var choices: Array[String] = title_choices()
 	for index in range(choices.size()):
 		$HUD/TitleOverlay/MenuContainer.get_child(index).text = "> %s <" % choices[index] if menu_selection == index else choices[index]
-	$HUD/TitleOverlay/UnlockHint.text = "Highest unlocked: %d  |  Left / Right adjusts Start Level" % records.highest_level
+	$HUD/TitleOverlay/NavigationHint.text = "Directions to choose | %s to select" % binding_hint("menu_accept")
+	$HUD/TitleOverlay/UnlockHint.text = "Highest unlocked: %d | Menu Left / Right adjusts Start Level" % records.highest_level
+
+
+## Ten rows; empty slots show placeholders that are never saved.
+func update_high_score_table() -> void:
 	var ranks := ""
 	var names := ""
 	var scores := ""
 	for index in range(records.TABLE_SIZE):
 		var entry: Dictionary = records.entries[index] if index < records.entries.size() else {"initials": "---", "score": 0}
-		ranks += "%2d.\n" % (index + 1)
-		names += "%s\n" % entry.initials
-		scores += "%06d\n" % entry.score
-	$HUD/HighScoresOverlay/Ranks.text = ranks.trim_suffix("\n")
-	$HUD/HighScoresOverlay/Initials.text = names.trim_suffix("\n")
-	$HUD/HighScoresOverlay/Scores.text = scores.trim_suffix("\n")
+		ranks += "%2d.
+" % (index + 1)
+		names += "%s
+" % entry.initials
+		scores += "%06d
+" % entry.score
+	$HUD/HighScoresOverlay/Ranks.text = ranks.trim_suffix("
+")
+	$HUD/HighScoresOverlay/Initials.text = names.trim_suffix("
+")
+	$HUD/HighScoresOverlay/Scores.text = scores.trim_suffix("
+")
+
+
+## The three letter slots plus a hint matched to how the Player is entering them.
+func update_initials_view() -> void:
 	$HUD/InitialsOverlay/InitialsLabel.text = " ".join((initials + "___").substr(0, 3).split(""))
-	$HUD/OptionsOverlay/MusicVolume.text = ("> Music Volume  %d <" if options_selection == 0 else "Music Volume  %d") % records.music_volume
-	$HUD/OptionsOverlay/SFXVolume.text = ("> SFX Volume  %d <" if options_selection == 1 else "SFX Volume  %d") % records.sfx_volume
-	var accept_hint: String = records.controls.binding_text("menu_accept", "key") + " / " + records.controls.binding_text("menu_accept", "pad")
-	var cancel_hint: String = records.controls.binding_text("menu_back", "key") + " / " + records.controls.binding_text("menu_back", "pad")
-	$HUD/TitleOverlay/NavigationHint.text = "Directions to choose | %s to select" % accept_hint
-	$HUD/TitleOverlay/UnlockHint.text = "Highest unlocked: %d | Menu Left / Right adjusts Start Level" % records.highest_level
-	$HUD/OptionsOverlay/ReturnHint.text = "%s to return" % cancel_hint
-	$HUD/HighScoresOverlay/ReturnHint.text = "%s to return to Title" % cancel_hint
 	var entry_hint: Label = $HUD/InitialsOverlay/EntryHint
 	if touch_controls_enabled:
 		entry_hint.text = "Tap your three initials, then SAVE"
 	elif initials_grid_visible():
-		entry_hint.text = "Directions pick  •  %s adds  •  %s erases  •  or just type" % [accept_hint, cancel_hint]
+		entry_hint.text = "Directions pick  •  %s adds  •  %s erases  •  or just type" % [binding_hint("menu_accept"), binding_hint("menu_back")]
 	else:
 		entry_hint.text = "Type your initials  •  Backspace erases  •  %s saves" % records.controls.binding_text("menu_accept", "key")
 	# Without the key grid, keep the hint directly under the letters.
 	entry_hint.position.y = 276.0 if initials_grid_visible() else 132.0
-	# Follows remapped keys; R and Q are fixed shortcuts shown on their own rows.
-	var resume_keys: Array[String] = []
-	for action in ["pause_game", "menu_back", "menu_accept"]:
-		var key_name: String = records.controls.binding_text(action, "key").to_upper()
-		if not key_name in resume_keys: resume_keys.append(key_name)
-	$HUD/PauseOverlay/ResumeHint.text = " / ".join(resume_keys) + ": RESUME"
-	$HUD/GameOverOverlay/RestartHint.text = records.controls.binding_text("menu_accept", "key").to_upper() + ": SELECT"
+
+
+## Pause and Game Over hint lines follow the current key bindings; touchscreens just say tap.
+func update_run_menu_hints() -> void:
 	if touch_controls_enabled:
 		$HUD/GameOverOverlay/RestartHint.text = "TAP AN OPTION"
 		$HUD/PauseOverlay/ResumeHint.text = "TAP AN OPTION"
-	update_option_rows()
-	controls_overlay.queue_redraw()
-	# Pointer buttons replace hints only where they occupy the same space.
-	$HUD/OptionsOverlay/ReturnHint.hide()
-	$HUD/HighScoresOverlay/ReturnHint.hide()
-	menu_pointer.refresh()
+		return
+	# Pause, Esc (fixed), Cancel and Accept all resume; list each distinct key once.
+	var resume_keys: Array[String] = []
+	for key_name in [records.controls.binding_text("pause_game", "key"), "Escape",
+			records.controls.binding_text("menu_back", "key"), records.controls.binding_text("menu_accept", "key")]:
+		if not key_name.to_upper() in resume_keys: resume_keys.append(key_name.to_upper())
+	$HUD/PauseOverlay/ResumeHint.text = " / ".join(resume_keys) + ": RESUME"
+	$HUD/GameOverOverlay/RestartHint.text = records.controls.binding_text("menu_accept", "key").to_upper() + ": SELECT"
+
+
+## "Key / Pad" names for a menu action, e.g. "Enter / Face Down".
+func binding_hint(action: String) -> String:
+	return records.controls.binding_text(action, "key") + " / " + records.controls.binding_text(action, "pad")
 
 
 ## Explicit destinations keep navigation separate from gameplay input and RNG.
@@ -258,10 +311,10 @@ func handle_menu_input(event: InputEvent) -> void:
 			game_audio.play_ui("menu_confirm")
 			game_audio.play_music("title")
 	elif event.is_action_pressed("menu_up"):
-		menu_selection = posmod(menu_selection - 1, 5)
+		menu_selection = posmod(menu_selection - 1, title_choices().size())
 		game_audio.play_ui("menu_move")
 	elif event.is_action_pressed("menu_down"):
-		menu_selection = (menu_selection + 1) % 5
+		menu_selection = (menu_selection + 1) % title_choices().size()
 		game_audio.play_ui("menu_move")
 	elif menu_selection == 1 and event.is_action_pressed("menu_left"):
 		if selected_start_level > 1:
@@ -306,20 +359,20 @@ func handle_options_input(event: InputEvent) -> void:
 func handle_initials_input(event: InputEvent) -> void:
 	if event.is_action_pressed("menu_accept") and initials.length() == 3:
 		submit_initials()
-	elif event.is_action_pressed("menu_accept") and initial_picker_active:
+	elif event.is_action_pressed("menu_accept") and initial_cursor_active:
 		add_initial(INITIAL_CHARACTERS[initial_choice])
-		initial_picker_active = true
+		initial_cursor_active = true
 	elif event.is_action_pressed("menu_back"):
 		erase_initial()
-		if initials.is_empty(): initial_picker_active = false
+		if initials.is_empty(): initial_cursor_active = false
 	elif event.is_action_pressed("menu_left") or event.is_action_pressed("menu_right"):
 		var step: int = -1 if event.is_action_pressed("menu_left") else 1
 		initial_choice = posmod(initial_choice + step, INITIAL_CHARACTERS.length())
-		initial_picker_active = true
+		initial_cursor_active = true
 	elif event.is_action_pressed("menu_up") or event.is_action_pressed("menu_down"):
 		var row_step: int = -INITIAL_GRID_COLUMNS if event.is_action_pressed("menu_up") else INITIAL_GRID_COLUMNS
 		initial_choice = posmod(initial_choice + row_step, INITIAL_CHARACTERS.length())
-		initial_picker_active = true
+		initial_cursor_active = true
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_BACKSPACE or event.physical_keycode == KEY_BACKSPACE:
 			erase_initial()
@@ -335,7 +388,7 @@ func add_initial(character: String) -> void:
 	if initials.length() >= 3:
 		return
 	initials += character
-	initial_picker_active = false
+	initial_cursor_active = false
 	game_audio.play_ui("menu_move")
 
 
@@ -357,7 +410,7 @@ func submit_initials() -> void:
 
 ## The key grid appears for touch, and for controller/arrow-key users once they press a direction.
 func initials_grid_visible() -> bool:
-	return touch_controls_enabled or initial_picker_active
+	return touch_controls_enabled or initial_cursor_active
 
 
 ## Decide once after the death animation. Only a Top 10 score opens initials entry; any other
@@ -404,7 +457,7 @@ func get_multiplier_half_units() -> int:
 
 ## Reward a gameplay success before releasing its unresolved record.
 ## Score first so a Level-boundary threat still earns the old multiplier; cosmetics never call this.
-func award_successful_threat(threat_type: ThreatType) -> void:
+func award_successful_threat(threat_type: int) -> void:
 	var previous_level: int = level
 	var half_units: int = get_multiplier_half_units()
 	@warning_ignore("integer_division")
@@ -473,9 +526,9 @@ func suspend_browser() -> void:
 
 
 func update_touch_controls() -> void:
-	var mode := 0
+	var mode = touch_overlay.Mode.HIDDEN
 	if touch_controls_enabled and game_state == GameState.RUN and not run_change_pending:
-		mode = 2 if get_tree().paused or player.is_dead else 1
+		mode = touch_overlay.Mode.PAUSE_ONLY if get_tree().paused or player.is_dead else touch_overlay.Mode.PLAYING
 	touch_overlay.set_mode(mode)
 
 
@@ -659,6 +712,8 @@ func select_pending_threat() -> void:
 	pending_side = 1 if encounter_rng.randi_range(0, 1) == 0 else -1
 
 
+## TUNING: chance that a free choice starts a two-step pattern instead of a random threat.
+## Patterns pick only WHAT comes next; the fairness check still decides WHEN. Safe to change.
 func get_pattern_start_chance() -> float:
 	if level < 4: return 0.0
 	if level < 6: return 0.10
@@ -668,6 +723,7 @@ func get_pattern_start_chance() -> float:
 	return 0.25 # About 40% of threats are patterned; ordinary random threats remain the majority.
 
 
+## How many ENCOUNTER_PATTERNS are unlocked at the current Level (they unlock in list order).
 func get_pattern_pool_size() -> int:
 	if level < 4: return 0
 	if level < 7: return 2
@@ -681,6 +737,8 @@ func clear_pattern() -> void:
 	pattern_start_side = 0
 
 
+## TUNING: minimum breathing time after a spawn or resolution before the next admission.
+## Pure pacing on top of the fairness check (zero is still fair). Safe to change.
 func get_spawn_gap() -> float:
 	if level <= 3: return 0.85
 	if level <= 6: return 0.65
@@ -692,6 +750,7 @@ func get_spawn_gap() -> float:
 	return 0.0
 
 
+## One threat at a time until OVERLAP_START_LEVEL, then two. Three would need a new fairness proof.
 func get_max_unresolved() -> int:
 	return 1 if level < OVERLAP_START_LEVEL else 2
 
@@ -700,63 +759,71 @@ func is_assassin(threat_type: int) -> bool:
 	return threat_type == ThreatType.RED or threat_type == ThreatType.BLUE
 
 
-## Pending choices have no speed yet: a Level-up before spawn must affect the new actor.
-func get_spawn_speed(threat_type: int) -> float:
-	var base_speed: float = minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), EARLY_APPROACH_SPEED_CAP)
+## The Level's base speed from the curve above (before type multipliers and entry scaling).
+func get_base_speed() -> float:
 	if level >= 20:
-		base_speed = minf(ENDURANCE_APPROACH_SPEED + LATE_SPEED_PER_LEVEL * (level - 20), MAX_APPROACH_SPEED)
-	elif level >= 15:
-		base_speed = EXPERIENCED_APPROACH_SPEED
+		return minf(ENDURANCE_APPROACH_SPEED + LATE_SPEED_PER_LEVEL * (level - 20), MAX_APPROACH_SPEED)
+	if level >= 15:
+		return EXPERIENCED_APPROACH_SPEED
+	return minf(BASE_APPROACH_SPEED + APPROACH_SPEED_PER_LEVEL * (level - 1), EARLY_APPROACH_SPEED_CAP)
+
+
+## Actual on-screen speed for a new threat of this type. Pending choices have no speed yet:
+## a Level-up before spawn must affect the new actor.
+func get_spawn_speed(threat_type: int) -> float:
+	var speed: float = get_base_speed() * ThreatTiming.spawn_distance(threat_type) / TUNED_APPROACH_DISTANCE
 	if threat_type == ThreatType.BARREL:
-		return base_speed * BARREL_SPEED_MULTIPLIER
+		return speed * ThreatTiming.BarrelScript.SPEED_MULTIPLIER
 	if threat_type == ThreatType.SHURIKEN:
-		return base_speed * ThreatTiming.ShurikenScript.PROJECTILE_SPEED_MULTIPLIER
-	return base_speed
+		return speed * ThreatTiming.ShurikenScript.SPEED_MULTIPLIER
+	return speed
 
 
 ## Assassin telegraph length for the current Level.
 func get_windup_duration() -> float:
-	var default_windup: float = ThreatTiming.RedScript.DEFAULT_WINDUP_DURATION
+	var default_windup: float = ThreatTiming.AssassinScript.DEFAULT_WINDUP_DURATION
 	if level < LATE_WINDUP_START_LEVEL:
 		return default_windup
 	var steps: int = level - LATE_WINDUP_START_LEVEL + 1
 	return maxf(MIN_WINDUP_DURATION, default_windup - WINDUP_REDUCTION_PER_LEVEL * steps)
 
 
-## First possible contact with a standing Player; see ThreatTiming for the geometry.
-func get_lethal_lead(threat_type: int, speed: float) -> float:
-	return ThreatTiming.lethal_lead(threat_type, speed)
+## Shrinks linearly from REACTION_ALLOWANCE_EARLY at OVERLAP_START_LEVEL to REACTION_ALLOWANCE_LATE.
+func get_reaction_allowance() -> float:
+	var span: float = REACTION_TIGHTEST_LEVEL - OVERLAP_START_LEVEL
+	var progress: float = clampf((level - OVERLAP_START_LEVEL) / span, 0.0, 1.0)
+	return lerpf(REACTION_ALLOWANCE_EARLY, REACTION_ALLOWANCE_LATE, progress)
 
 
 ## The fairness check. Plans one press time for the pending threat so that, together with every
 ## admitted threat's planned press, the whole sequence stays survivable:
 ## - the press lies inside the threat's geometric press window (trimmed by one tick at each end);
 ## - it comes after every earlier planned response has fully recovered, plus a turn for assassins
-##   and FAIRNESS_MARGIN breathing room;
+##   and the Level's reaction allowance (get_reaction_allowance);
 ## - pressing up to RESPONSE_TOLERANCE late (or anywhere in a narrower window) keeps it valid.
-## Returns the planned press time, or -1.0 when admitting the threat now could not be fair.
-func plan_pending_press() -> float:
+## Returns {"press_at", "press_latest"} as absolute encounter times, or an empty Dictionary when
+## admitting the threat now could leave no survivable response. (Not a Vector2: its 32-bit
+## floats would round long-run absolute times.)
+func plan_pending_press() -> Dictionary:
 	var ready_at: float = encounter_time + maxf(0.0, ThreatTiming.player_action_duration(player.current_action) - player.action_elapsed)
 	for record in active_threats:
 		# A dodged/retrying Assassin invalidates its original first-strike forecast. Wait for resolution.
 		if encounter_time >= record.lethal_at:
-			return -1.0
+			return {}
 		ready_at = maxf(ready_at, record.response_end)
 	var window: Vector2 = ThreatTiming.press_window(pending_type, get_spawn_speed(pending_type))
 	var earliest: float = encounter_time + window.x + PRESS_WINDOW_INSET
 	var latest: float = encounter_time + window.y - PRESS_WINDOW_INSET
+	# A narrow window (a slow Level 1 Shuriken) offers its whole width rather than the full tolerance.
+	var tolerance: float = clampf(window.y - window.x - 2.0 * PRESS_WINDOW_INSET, 0.0, RESPONSE_TOLERANCE)
 	# Reserve a full turn for either Assassin side; same-side pairs may not need it.
 	var turn_time: float = ASSASSIN_TURN_ALLOWANCE if is_assassin(pending_type) else 0.0
-	var press_at: float = maxf(earliest, ready_at + turn_time + FAIRNESS_MARGIN)
-	if press_at + get_press_tolerance(pending_type) > latest:
-		return -1.0
-	return press_at
-
-
-## A narrow window (a slow Level 1 Shuriken) offers its whole width rather than the full tolerance.
-func get_press_tolerance(threat_type: int) -> float:
-	var window: Vector2 = ThreatTiming.press_window(threat_type, get_spawn_speed(threat_type))
-	return clampf(window.y - window.x - 2.0 * PRESS_WINDOW_INSET, 0.0, RESPONSE_TOLERANCE)
+	var press_at: float = maxf(earliest, ready_at + turn_time + get_reaction_allowance())
+	# When the tolerance is the whole window, both sides are mathematically equal; the epsilon
+	# stops float rounding from blocking that threat forever (which would stall all spawning).
+	if press_at + tolerance > latest + 0.000001:
+		return {}
+	return {"press_at": press_at, "press_latest": minf(press_at + tolerance, latest)}
 
 
 ## Admits the pending choice once pacing, capacity and the fairness check allow it. Each record
@@ -767,12 +834,11 @@ func try_spawn_pending_threat() -> void:
 		return
 	if active_threats.size() >= get_max_unresolved():
 		return
-	var press_at: float = plan_pending_press()
-	if press_at < 0.0:
+	var plan: Dictionary = plan_pending_press()
+	if plan.is_empty():
 		return
 	var speed: float = get_spawn_speed(pending_type)
-	var lethal_at: float = encounter_time + get_lethal_lead(pending_type, speed)
-	var press_latest: float = press_at + get_press_tolerance(pending_type)
+	var lethal_at: float = encounter_time + ThreatTiming.lethal_lead(pending_type, speed)
 	var actor = THREAT_SCENES[pending_type].instantiate()
 	# Main is always-processing for controls; actors must not inherit that exception.
 	actor.process_mode = Node.PROCESS_MODE_PAUSABLE
@@ -780,8 +846,7 @@ func try_spawn_pending_threat() -> void:
 	actor.movement_speed = speed
 	if is_assassin(pending_type):
 		actor.windup_duration = get_windup_duration()
-	actor.position = THREAT_START_POSITION
-	actor.position.x = player.position.x + pending_side * (THREAT_START_POSITION.x - player.position.x)
+	actor.position = Vector2(player.position.x + pending_side * ThreatTiming.spawn_distance(pending_type), ThreatTiming.FLOOR_Y)
 	if pending_type == ThreatType.SHURIKEN:
 		actor.position.y = actor.FLIGHT_HEIGHT
 	add_child(actor)
@@ -796,8 +861,8 @@ func try_spawn_pending_threat() -> void:
 		else:
 			actor.landed.connect(game_audio.play_impact.bind("shuriken_impact"))
 	active_threats.append({"actor": actor, "type": pending_type, "lethal_at": lethal_at,
-		"response_start": press_at, "press_latest": press_latest,
-		"response_end": press_latest + ThreatTiming.response_duration(pending_type),
+		"response_start": plan.press_at, "press_latest": plan.press_latest,
+		"response_end": plan.press_latest + ThreatTiming.response_duration(pending_type),
 		"pattern": pattern_id, "pattern_step": pattern_step if pattern_id >= 0 else -1})
 	next_spawn_at = encounter_time + get_spawn_gap()
 	if pattern_id >= 0:
@@ -813,7 +878,7 @@ func finish_threat(record: Dictionary) -> void:
 	else:
 		# A resolved hazard no longer needs an approach cue; its impact has its own later signal.
 		game_audio.stop_hazard(record.actor.get_instance_id())
-	award_successful_threat(record.type as ThreatType)
+	award_successful_threat(record.type)
 	active_threats.erase(record)
 	# Use the new Level's pacing after progression. Already approaching actors keep their reservations.
 	next_spawn_at = encounter_time + get_spawn_gap()
@@ -826,8 +891,9 @@ func cancel_pending_spawn() -> void:
 	next_spawn_at = -1.0
 
 
-## All actors move first, then Player attacks, then lethal checks, then surviving hazard rewards.
-## Separate passes preserve Player-first Assassin priority regardless of the array's encounter order.
+## The per-tick combat order: Player animates, threats move, Player attacks resolve, then
+## threat attacks/collisions, then completed hazards are rewarded, and finally a new threat may
+## be admitted. Separate passes mean a valid Player attack always wins a same-tick clash.
 func _physics_process(delta: float) -> void:
 	# Main handles menus and pause; simulation exists only in an unpaused run with no restart pending.
 	if game_state != GameState.RUN or run_change_pending or get_tree().paused:

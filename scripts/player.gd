@@ -6,7 +6,11 @@ extends Node2D
 signal action_started(action: int)
 signal died
 
-# Durations are seconds and distances are logical pixels; player timings stay fixed across levels.
+# TUNING: durations are seconds and distances logical pixels. Player timings never scale with
+# Level (difficulty comes from the world). Every value below feeds the fairness maths in
+# threat_timing.gd: after changing any of them, re-run press_window_verify.gd and scheduler_verify.gd.
+# Standing hurtbox; Duck and Jump scale/move it from the feet.
+const BODY_SIZE := Vector2(16, 40)
 const TURN_DURATION: float = 0.10
 const PUNCH_EXTENSION_DURATION: float = 0.06
 const PUNCH_HOLD_DURATION: float = 0.08
@@ -86,8 +90,8 @@ func advance_tick(delta: float) -> void:
 		return
 	update_living_pose(delta)
 	# Keep the core body aligned with the visible jump/crouch, but not turn squashing.
-	hurtbox.position = visuals.position + Vector2(0.0, -20.0 * visuals.scale.y)
-	hurtbox.shape.size = Vector2(16.0, 40.0 * visuals.scale.y)
+	hurtbox.position = visuals.position + Vector2(0.0, -BODY_SIZE.y / 2.0 * visuals.scale.y)
+	hurtbox.shape.size = Vector2(BODY_SIZE.x, BODY_SIZE.y * visuals.scale.y)
 
 
 ## Committed actions own the collision pose; Art renders a discrete turn without sprite squashing.

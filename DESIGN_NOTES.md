@@ -6,7 +6,7 @@
 ## Core Game Loop
 
 Single-screen endless arcade reaction/combat game. Player stays at x=320, feet at y=300;
-threats enter at x=80 or x=560. One spatial hit kills Player. Actions are committed;
+threats walk or roll in from just beyond either screen edge. One spatial hit kills Player. Actions are committed;
 Score, Level and a persistent local Top 10 track the run. There is no victory condition.
 
 ## Startup / Title / Menus
@@ -258,6 +258,8 @@ Pausable; the separate UI voice remains Always processing for pause/resume feedb
 
 The intended response is **not a magic attack-type rule**. Current visual/hurtbox geometry
 and spatial overlap determine success. Both entry sides mirror the same mechanics.
+Red and Blue share their approach/strike/retry state machine in [assassin.gd](scripts/assassin.gd);
+Barrel and Shuriken share their entry, collision and passage rules in [hazard.gd](scripts/hazard.gd).
 
 - **Red Assassin → Kick.** Standing 16×40 body; stops 38 px away. Punch's 25.5 px
   reach cannot bridge the 30 px gap to its near body edge; Kick can. Telegraph (wind-up) is 0.35
@@ -281,23 +283,25 @@ and spatial overlap determine success. Both entry sides mirror the same mechanic
 
 ## Threat Speed
 
-Levels 1–14 use `base_speed = min(60 + 5 * (level - 1), 100)` px/s and Levels 15–19 use 105.
-From Level 20, `base_speed = min(110 + (level - 20), 140)`: one more px/s per Level, levelling
-off at 140 from Level 50. The familiar Level 1–9 ramp is preserved; late Levels keep getting
-faster instead of going static at Level 20 as they once did.
-Assassins use base speed; Barrel uses `base_speed * 1.15`; Shuriken uses `base_speed * 1.25`.
+Threats spawn just beyond the screen edge so no artwork pops into view: 320 px (half the screen)
+plus an entry margin matched to each one's art (Red 40 px for its katana, Blue 14, Barrel 10,
+Shuriken 5). See `ENTRY_MARGIN` in [threat_timing.gd](scripts/threat_timing.gd).
 
-| Level | Base / Assassins | Barrel | Shuriken | Assassin wind-up |
-| --- | --- | --- | --- | --- |
-| 1 | 60 | 69 | 75 | 0.35 |
-| 5 | 80 | 92 | 100 | 0.35 |
-| 9–14 | 100 | 115 | 125 | 0.35 |
-| 15–19 | 105 | 120.75 | 131.25 | 0.35 |
-| 20 | 110 | 126.5 | 137.5 | 0.35 |
-| 30 | 120 | 138 | 150 | 0.35 |
-| 40 | 130 | 149.5 | 162.5 | 0.34 |
-| 49 | 139 | 159.85 | 173.75 | 0.25 |
-| 50+ | 140 | 161 | 175 | 0.25 |
+The Level curve sets a **base speed**: Levels 1–14 use `min(60 + 5 * (level - 1), 100)` px/s,
+Levels 15–19 use 105, and from Level 20 `min(110 + (level - 20), 140)`, levelling off at 140 from
+Level 50. That curve was tuned for threats appearing 240 px from the Player. To keep the same time
+from appearing to reaching the Player, each threat's **on-screen speed** is the base speed ×
+(its spawn distance / 240), then ×1.15 for Barrel or ×1.25 for Shuriken.
+
+| Level | Base | Red | Blue | Barrel | Shuriken | Assassin wind-up |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 60 | 90 | 83.5 | 94.9 | 101.6 | 0.35 |
+| 5 | 80 | 120 | 111.3 | 126.5 | 135.4 | 0.35 |
+| 9–14 | 100 | 150 | 139.2 | 158.1 | 169.3 | 0.35 |
+| 20 | 110 | 165 | 153.1 | 173.9 | 186.2 | 0.35 |
+| 30 | 120 | 180 | 167 | 189.8 | 203.1 | 0.35 |
+| 40 | 130 | 195 | 180.9 | 205.6 | 220.1 | 0.34 |
+| 50+ | 140 | 210 | 194.8 | 221.4 | 237 | 0.25 |
 
 All speeds are logical px/s. Jump remains 0.82 s / 55 px; Duck remains 0.60 s.
 Final speed and wind-up are assigned at spawn; existing threats never change retroactively.
@@ -434,7 +438,7 @@ reproducible with the new algorithm. A Level-up changes future selection eligibi
 already-selected steps retain their definition, orientation and type, even across unlock tiers.
 
 Every step passes the unchanged capacity, commitment, response reservation, turn allowance
-and 100 ms margin checks. Patterns cannot force overlap or bypass an expired Assassin forecast.
+and reaction-allowance checks. Patterns cannot force overlap or bypass an expired Assassin forecast.
 Pause freezes continuation state. Death cancels it; restart replaces it with fresh run state.
 Pattern provenance on active records is diagnostic only: scoring, progression and unlocks
 use the same ordinary threat path. No pattern-specific timers, rewards or speed changes exist.
@@ -514,32 +518,34 @@ Restart recreates the scene and all scheduler state.
 
 ### Difficulty shaping and measured pacing
 
-Difficulty keeps rising until Level 50 through three linked levers: faster threats (Threat Speed),
-a shorter assassin telegraph from Level 40, and the tighter fairness model below, which lets
-threats arrive closer together while every sequence stays survivable. From Level 50 the curve
-levels off at its hardest setting. An earlier version stopped changing at Level 30
-(0.827 threats/s at every Level from 30 up); owner playtesting past Level 30 found that static.
+Difficulty keeps rising until Level 50 through linked levers: faster threats (Threat Speed), a
+shorter assassin telegraph from Level 40, and a reaction allowance between consecutive responses
+that tightens from 0.60 s at Level 6 to 0.25 s at Level 50 (Scheduler Fairness Model). From
+Level 50 the curve levels off at its hardest setting.
+
+History: the original curve went static at Level 30 (0.827 threats/s from Level 30 up). A first
+extension packed threats with only 0.10 s between responses; playtesting showed opposite-side
+pairs (for example Punch a Blue, then Duck a Shuriken) then arrived too close to react to both,
+so the reaction allowance replaced that 0.10 s margin.
 
 Measured with [pacing_measure.gd](tools/regression/pacing_measure.gd): seed 300030, 400 handled
 threats per fixed Level, a test-only Level lock, and an idealised autopilot pressing each threat
 at its planned moment. These are pacing measurements, not human performance.
 
-| Level | Base speed | Threats per second | Mean spawn gap (s) | Time with 2 unresolved | Previous model (threats/s) |
+| Level | Base speed | Threats per second | Mean spawn gap (s) | Time with 2 unresolved | Original curve (threats/s) |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 60 | 0.216 | 4.620 | 0% | 0.229 |
-| 5 | 80 | 0.307 | 3.253 | 0% | 0.304 |
-| 6 | 85 | 0.574 | 1.741 | 50.0% | 0.628 |
-| 10 | 100 | 0.817 | 1.223 | 69.4% | 0.751 |
-| 15 | 105 | 0.911 | 1.098 | 79.5% | 0.787 |
-| 20 | 110 | 0.997 | 1.003 | 87.4% | 0.816 |
-| 25 | 115 | 1.036 | 0.965 | 87.0% | 0.816 |
-| 30 | 120 | 1.144 | 0.874 | 97.5% | 0.827 |
-| 40 | 130 | 1.222 | 0.818 | 95.7% | 0.827 |
-| 50+ | 140 | 1.270 | 0.787 | 88.4% | 0.827 |
+| 1 | 60 | 0.228 | 4.395 | 0% | 0.229 |
+| 5 | 80 | 0.302 | 3.311 | 0% | 0.304 |
+| 6 | 85 | 0.630 | 1.586 | 56.9% | 0.628 |
+| 10 | 100 | 0.781 | 1.280 | 65.8% | 0.751 |
+| 15 | 105 | 0.827 | 1.209 | 67.3% | 0.787 |
+| 20 | 110 | 0.864 | 1.158 | 66.5% | 0.816 |
+| 30 | 120 | 0.928 | 1.077 | 64.0% | 0.827 |
+| 40 | 130 | 1.002 | 0.998 | 63.8% | 0.827 |
+| 50+ | 140 | 1.089 | 0.918 | 65.6% | 0.827 |
 
-Levels 1–5 are paced by the one-threat cap and spawn gaps, so they barely change. Level 6 is
-about 9% gentler than before, softening the previously large Level 5→6 step. From Level 10 up,
-pressure rises steadily: about +38% at Level 30 and +54% at Level 50 compared with the old curve.
+Levels 1–6 match the original pacing. From Level 10 the pressure climbs steadily, reaching the
+original curve's ceiling around Level 15 and about +32% by Level 50.
 
 Manual acceptance should compare Levels 5→6, 10→20→30 and 40→50 across several seeds, judging
 recognition, breathing room and fatigue rather than speed alone. Automated inputs and rendered
@@ -552,8 +558,8 @@ The pure maths lives in [threat_timing.gd](scripts/threat_timing.gd); Main's `pl
 applies it. For a threat spawned now at its final speed `v`:
 
 - **First contact** (`lethal_lead`): when it can first touch a standing Player.
-  Red `(240 − 38)/v + 0.09`, Blue `(240 − 30)/v + 0.08`, Barrel `(240 − 8 − 9)/v`,
-  Shuriken `(240 − 8 − 4)/v`. Assassins keep full speed through their wind-up, so its length never
+  With `d` that threat's spawn distance: Red `(d − 38)/v + 0.09`, Blue `(d − 30)/v + 0.08`,
+  Barrel `(d − 8 − 9)/v`, Shuriken `(d − 8 − 4)/v`. Assassins keep full speed through their wind-up, so its length never
   changes these.
 - **Press window** (`press_window`): the earliest and latest press of the intended response that
   wins, derived from geometry. Kick/Punch must be active after the assassin's body enters reach and
@@ -562,9 +568,9 @@ applies it. For a threat spawned now at its final speed `v`:
 
 | Press window (ms) | Red Kick | Blue Punch | Barrel Jump | Shuriken Duck |
 | --- | --- | --- | --- | --- |
-| Level 1 | 350 | 218 | 180 | 121 |
-| Level 20 | 305 | 192 | 404 | 266 |
-| Level 50+ | 293 | 185 | 461 | 304 |
+| Level 1 | 317 | 202 | 314 | 205 |
+| Level 20 | 286 | 183 | 477 | 312 |
+| Level 50+ | 279 | 178 | 519 | 340 |
 
 Hazard windows widen at speed because faster hazards spend less time crossing the Player;
 their difficulty is recognition and sequencing, not tighter timing. Blue stays the tightest response.
@@ -576,11 +582,12 @@ when it is narrower, as for a slow Level 1 Shuriken). Its reservation ends at `r
 
 `ready = max(now + remaining current action, every unresolved threat's response_end)`
 
-`response_start = max(window_start, ready + turn + 0.10)`
+`response_start = max(window_start, ready + turn + reaction)`
 
 and it is admitted only if `response_start + tolerance <= window_end`. `turn` is 0.10 s before either Assassin
-(reserving the opposite-side cost avoids relying on facing). The 0.10 s margin leaves recovery
-breathing room. So if the Player presses each threat anywhere inside its planned interval, every
+(reserving the opposite-side cost avoids relying on facing). `reaction` is the reaction allowance:
+time to notice the next threat and respond after finishing the previous action. It is 0.60 s up to
+Level 6 and shrinks linearly to 0.25 s (about human reaction time) at Level 50. So if the Player presses each threat anywhere inside its planned interval, every
 later threat stays answerable. When a threat is alone, any press in its whole window works.
 
 The old model reserved `[first contact − action, first contact + action]` for every threat: about
@@ -594,13 +601,43 @@ missed responses or indefinite Assassin evasion. Player skill is still required.
 
 **Verification.** [press_window_verify.gd](tools/regression/press_window_verify.gd) checks every
 mirrored geometry constant against the scenes. It then simulates a press on every 60 Hz tick
-inside every trimmed window (1,936 presses across all threats, both sides and Levels 1–1000) and
-requires each to win, while clearly early or late presses fail. It also checks that Blue finishes
+inside every trimmed window (2,096 presses across all threats, both sides and Levels 1–1000) and
+requires each to win, while clearly early or late presses fail. It also proves every threat spawns
+with its artwork fully off-screen. It also checks that Blue finishes
 crouching before Kick range at every wind-up. The scheduler pair matrix runs all 16 ordered pairs ×
 4 side combinations × 8 Levels (1–1000) twice: once pressing at each planned press and once at the
-latest tolerated moment (1,024 cases), with the 0.10 s margin never violated. Long seeded runs,
+latest tolerated moment (1,024 cases), never leaving less than the 0.25 s minimum reaction allowance. Long seeded runs,
 late-tier pairs, pattern suites and determinism checks also pass. Retuning Player timings or
 threat geometry requires updating threat_timing.gd and rerunning these suites.
+
+## Tuning Guide
+
+Where to change the game, and what to re-check afterwards. Constants marked `TUNING` in the
+code carry the same notes. "Safe" means no fairness proof depends on it; anything else needs
+[press_window_verify.gd](tools/regression/press_window_verify.gd), `scheduler_verify.gd` and
+`late_verify.gd` rerun (see [tools/regression](tools/regression/README.md)), plus a
+`pacing_measure.gd` comparison for difficulty changes.
+
+| What | Where | Safe? |
+| --- | --- | --- |
+| Threat speed curve, top speed, late wind-up | [main.gd](scripts/main.gd) TUNING block | Re-run fairness suites |
+| Spawn gaps (breathing time) | `main.gd` `get_spawn_gap()` | Safe |
+| Pattern frequency and unlocks | `main.gd` `get_pattern_start_chance()`, `ENCOUNTER_PATTERNS` | Safe |
+| Two-threat overlap Level | `main.gd` `OVERLAP_START_LEVEL` | Safe (three threats need a new proof) |
+| Reaction allowance (stagger between responses), turn allowance, timing tolerance | `main.gd` TUNING block | Re-run fairness suites |
+| Off-screen entry margins | `threat_timing.gd` `ENTRY_MARGIN` | Re-run fairness suites |
+| Points, Levels per four threats, multiplier | `main.gd` `POINTS_PER_THREAT`, `HANDLED_THREATS_PER_LEVEL`, `get_multiplier_half_units()` | Safe (AGENTS.md fixes these rules) |
+| Player action timings, jump height, duck depth, body size | [player.gd](scripts/player.gd) TUNING block | Re-run fairness suites |
+| Assassin phase lengths and body | [assassin.gd](scripts/assassin.gd); stop distances in red/blue_assassin.gd | Re-run fairness suites |
+| Barrel/Shuriken speed multipliers, Shuriken height | [barrel.gd](scripts/barrel.gd), [shuriken.gd](scripts/shuriken.gd) | Re-run fairness suites |
+| Default key/controller bindings, stick thresholds | [control_bindings.gd](scripts/control_bindings.gd) | Safe |
+| Ambient clouds, bats, shoji figures, lamp flicker | [dojo_environment.gd](scripts/dojo_environment.gd) TUNING block | Safe (cosmetic) |
+| Combat pose timing and effects | [combat_art.gd](scripts/combat_art.gd), [combat_aftermath.gd](scripts/combat_aftermath.gd) | Safe (read-only art) |
+| Per-sound loudness | Audio voices' `volume_db` in [main.tscn](scenes/main.tscn) | Safe |
+
+The fairness maths itself lives in [threat_timing.gd](scripts/threat_timing.gd). It reads Player
+and threat values from their scripts, and mirrors a few scene-only shapes (attack reach, hazard
+radius) that press_window_verify.gd checks against the scenes.
 
 ## Display / Presentation
 
@@ -662,7 +699,8 @@ headband; Red uses crimson and steel; Blue uses cool blues with restrained cyan 
 Native-sized textures use nearest filtering and only ±1 horizontal mirroring, with no runtime
 skeleton, sprite rotation or fractional sprite scaling. The background and HUD remain as accepted.
 
-[combat_art.gd](scripts/combat_art.gd) reads actor state after Main's simulation tick. It does not
+[combat_art.gd](scripts/combat_art.gd) and the corpse effect share the atlas layout and named poses in
+[ninja_atlas.gd](scripts/ninja_atlas.gd). combat_art.gd reads actor state after Main's simulation tick. It does not
 write to the actor, collision shapes, scheduler, scoring or RNG. The hidden legacy pose nodes
 remain as the established collision/jump/crouch drivers; their transforms are not applied to the
 new artwork. This preserves gameplay geometry while replacing the displayed poses.
@@ -760,6 +798,8 @@ drift. Restart stops all old audio before starting the fresh run. Gameplay audio
 
 ## Not Yet Implemented
 
+V1 features still unbuilt (Sound on/off and master mute, seeded Easter-egg scores, a multiplier
+sound, death animations by cause) are listed in [Roadmap.md](Roadmap.md#outstanding-v1-specification-gaps-agentsmd).
 Character/audio polish is complete and manually accepted.
 Web/mobile export is implemented; physical controller, Android and iPhone/Safari device
 acceptance remains pending, including hands-on use of the pause menu, Game Over menu and

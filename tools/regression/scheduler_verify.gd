@@ -82,7 +82,8 @@ func tick(m, drive: bool = true) -> void:
 		var turn: float = 0.10 if second.type < 2 else 0.0
 		var gap: float = second.response_start-first.response_end-turn
 		minimum_pair_margin = minf(minimum_pair_margin,gap)
-		check(gap >= 0.10-0.000001,"pair recovery turn and margin")
+		# Every pair leaves at least the tightest reaction allowance between responses.
+		check(gap >= m.REACTION_ALLOWANCE_LATE-0.000001,"pair recovery turn and reaction allowance")
 		check(second.actor.movement_speed == second.actor.get_meta("snapshot",second.actor.movement_speed),"speed snapshot")
 
 func run() -> void:
@@ -230,7 +231,7 @@ func targeted() -> void:
 	var blocked_frames: int = 0
 	for frame in range(300):
 		if m.active_threats.size() == 2: break
-		if m.encounter_time >= m.next_spawn_at and m.plan_pending_press() < 0.0: blocked_frames += 1
+		if m.encounter_time >= m.next_spawn_at and m.plan_pending_press().is_empty(): blocked_frames += 1
 		tick(m,false)
 		if m.active_threats.size() == 1:
 			check(m.pending_type == 3 and m.pending_side == -1 and m.encounter_rng.state == state_before,"unsafe choice waits without reroll")
@@ -261,7 +262,7 @@ func targeted() -> void:
 	m.pending_side = -1
 	m.next_spawn_at = 0
 	m.try_spawn_pending_threat()
-	check(m.active_threats[0].actor.movement_speed == 125,"pending uses new Level speed")
+	check(is_equal_approx(m.active_threats[0].actor.movement_speed, 125.0*m.ThreatTiming.spawn_distance(3)/240.0),"pending uses new Level speed")
 	m.free()
 	await process_frame
 	# Death cancels all admissions and freezes score, including pending hazards.

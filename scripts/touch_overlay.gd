@@ -1,4 +1,6 @@
-## Discrete four-way pad plus attacks. Emits ordinary action events, never calls Player.
+## On-screen controls for touch play: a four-way pad (turn left/right, jump, duck), Punch, Kick
+## and Pause. Each press emits the same named InputEventAction as keyboard/controller, so
+## Player's committed-action rules apply unchanged; it never calls Player directly.
 extends Control
 
 const FONT = preload("res://art/ui/dojo_font.tres")
@@ -7,14 +9,19 @@ const LABELS = ["<", ">", "^", "v", "PUNCH", "KICK", "PAUSE"]
 # Larger thumb targets above the HUD. Translucent outer-lane controls leave centre combat clear.
 const RECTS = [Rect2(12, 224, 42, 36), Rect2(96, 224, 42, 36), Rect2(54, 188, 42, 36), Rect2(54, 260, 42, 36), Rect2(488, 226, 70, 58), Rect2(566, 226, 70, 58), Rect2(566, 12, 62, 36)]
 var fingers: Dictionary = {}
-var mode := 0 # 0 hidden, 1 playing, 2 paused/dead (Pause only).
+# Index of the Pause button in ACTIONS/RECTS; indices below PAD_BUTTONS are the four-way pad.
+const PAUSE_BUTTON: int = 6
+const PAD_BUTTONS: int = 4
+
+enum Mode { HIDDEN, PLAYING, PAUSE_ONLY } # PAUSE_ONLY while paused or dead.
+var mode: Mode = Mode.HIDDEN
 
 
-func set_mode(value: int) -> void:
+func set_mode(value: Mode) -> void:
 	if mode == value: return
 	release_all()
 	mode = value
-	visible = mode != 0
+	visible = mode != Mode.HIDDEN
 	queue_redraw()
 
 
@@ -38,7 +45,7 @@ func _exit_tree() -> void:
 
 ## One pointer owns the pad; attacks can use other fingers. Sliding never queues a new action.
 func handle_pointer(event: InputEvent) -> bool:
-	if mode == 0: return false
+	if mode == Mode.HIDDEN: return false
 	var pointer: int
 	var position: Vector2
 	var pressed: bool
@@ -68,10 +75,10 @@ func handle_pointer(event: InputEvent) -> bool:
 		return true
 	if fingers.has(pointer): return true
 	for index in RECTS.size():
-		if mode == 2 and index != 6: continue
+		if mode == Mode.PAUSE_ONLY and index != PAUSE_BUTTON: continue
 		if not RECTS[index].has_point(position): continue
 		for held_index in fingers.values():
-			if held_index == index or (index < 4 and held_index < 4): return true
+			if held_index == index or (index < PAD_BUTTONS and held_index < PAD_BUTTONS): return true
 		fingers[pointer] = index
 		send_action(index, true)
 		queue_redraw()
@@ -80,15 +87,16 @@ func handle_pointer(event: InputEvent) -> bool:
 
 
 func _draw() -> void:
-	if mode == 0: return
-	if mode == 1:
+	if mode == Mode.HIDDEN: return
+	if mode == Mode.PLAYING:
+		# Fill the pad's centre square so the four directions read as one control.
 		draw_rect(Rect2(54, 224, 42, 36), Color(0.025, 0.045, 0.07, 0.55))
 	for index in RECTS.size():
-		if mode == 2 and index != 6: continue
+		if mode == Mode.PAUSE_ONLY and index != PAUSE_BUTTON: continue
 		var rect: Rect2 = RECTS[index]
 		draw_rect(rect, Color(0.25, 0.30, 0.36, 0.85) if index in fingers.values() else Color(0.025, 0.045, 0.07, 0.55))
 		draw_rect(rect, Color(0.8, 0.72, 0.52, 0.75), false, 1)
-		if index < 4:
+		if index < PAD_BUTTONS:
 			var triangle := PackedVector2Array()
 			for point in [Vector2(0, -6), Vector2(-5, 4), Vector2(5, 4)]:
 				triangle.append(rect.get_center() + point.rotated([-PI / 2, PI / 2, 0, PI][index]))

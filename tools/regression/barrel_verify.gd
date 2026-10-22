@@ -10,7 +10,7 @@ func targeted():
 					m.pending_type = -1
 					var b = m.active_threats[0].actor
 					m.player.target_direction = face
-					var due: float = 240.0/b.movement_speed-m.player.JUMP_DURATION/2.0+timing
+					var due: float = m.ThreatTiming.spawn_distance(2)/b.movement_speed-m.player.JUMP_DURATION/2.0+timing
 					var pressed: bool = false
 					while not m.player.is_dead and not b.is_complete:
 						if not pressed and m.encounter_time >= due:

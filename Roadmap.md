@@ -37,7 +37,7 @@ If code and documentation disagree, inspect carefully and report the discrepancy
 | 27 — Environment Art Pass | COMPLETE: automated verification passed and environment/HUD presentation manually accepted by the user. |
 | 28 — Character and Threat Art Pass | COMPLETE; its deferred character-art polish was accepted in Milestone 35. |
 | 29 — Effects and Game Feel | COMPLETE for functional development following user review; preserve current timing and gameplay alignment. |
-| 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: late speed/gap tiers verified; user playtesting remains. |
+| 30 — Difficulty Shaping | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: extended 2026-10-22 (fairness model, speed to Level 50, late wind-ups) after owner playtest; verified automatically, playtesting of Levels 10–50 remains. |
 | 31 — Curated Encounter Patterns | IMPLEMENTED / MANUAL ACCEPTANCE PENDING: short mirrored patterns verified through the existing fairness scheduler. |
 | 32/33 — Controller Support, Remapping and Mobile Input Foundation | IMPLEMENTED / HARDWARE ACCEPTANCE PENDING: injected-event, persistence, regression and rendered checks passed. |
 | 34 — Web / Mobile Version | IMPLEMENTED / DEVICE ACCEPTANCE PENDING: shared Web export, touch menus, browser lifecycle, persistence and PWA verified; real devices remain. |
@@ -58,6 +58,13 @@ reservations), speed rising 1 px/s per Level from Level 20 to 140 at Level 50, a
 wind-ups shortening from Level 40 to 0.25 s at Level 49. This replaces Milestone 30's "bounded
 endurance tier" at Level 30; the curve now levels off at Level 50. Measured pacing is in
 [DESIGN_NOTES.md](DESIGN_NOTES.md#difficulty-shaping-and-measured-pacing); manual acceptance is pending.
+
+Owner playtesting then found opposite-side pairs arriving too close to react to both, and threats
+popping in inside the screen. Fixed the same day: a reaction allowance between consecutive
+responses (0.60 s at Level 6 tightening to 0.25 s at Level 50), threats entering from just
+off-screen with speeds scaled to keep the tuned approach time, and a scheduler stall when a narrow
+window's tolerance filled it exactly. Pacing now matches the original through Level 6 and climbs
+steadily to Level 50.
 
 Milestone 21 provides GAME OVER after the death animation, the retained final HUD and
 Enter restart into a clean run at its chosen starting Level with persistent records. Verification covered
@@ -156,7 +163,7 @@ injected inputs; this is not physical-keyboard user acceptance. See the measured
 in [DESIGN_NOTES.md](DESIGN_NOTES.md#difficulty-shaping-and-measured-pacing).
 
 **Acceptance focus:** compare the large Level-5→6 overlap step and the modest Level-10→30 escalation.
-Level 30+ is intentionally bounded endurance, not an endlessly accelerating inevitable-death timer.
+Level 30+ was then intentionally bounded endurance (superseded 2026-10-22: the curve now rises to Level 50).
 Levels 40/50 match Level 30. The user must judge whether the approximately 9% response-rate increase
 and shorter recognition time feel sufficient. The explicit Milestone 31 ticket authorised curated
 patterns after the committed Milestone 30 baseline; this does not imply manual acceptance of 30.
@@ -881,12 +888,22 @@ Do not abandon core completion to chase novelty.
 
 # CURRENT NEXT TARGET
 
-**Milestone 35 is complete and manually accepted.** No further presentation work is required
-for its closeout. Additional visual/audio refinement is deferred to a possible future milestone;
-do not start it automatically. The accepted environment/HUD and mechanical baseline remain intact.
+**All numbered milestones are implemented.** Milestone 35 is complete and manually accepted; do
+not start further presentation work automatically. What remains is acceptance and the V1 gaps below.
 
-Earlier acceptance records remain separate: Milestones 30/31 retain their user-playtesting
-status, 32/33 retain physical controller/touch acceptance, and 34 remains IMPLEMENTED /
-DEVICE ACCEPTANCE PENDING. These records do not reopen the accepted Milestone 35 polish.
+Acceptance still pending:
+- 30/31: owner playtesting of the extended difficulty curve (Levels 10→20→30 and 40→50) and pattern rhythm.
+- 32/33: a physical controller, including the pause/Game Over menus and the initials key grid.
+- 34: real Android and iPhone/Safari devices, including touch menus and the initials key grid.
+
+## Outstanding V1 specification gaps (AGENTS.md)
+
+These are in AGENTS.md's intended V1 but not yet built. Each needs an explicit owner ticket:
+- **Sound Options:** music and SFX on/off toggles, and a master-mute shortcut during gameplay.
+  Today only volume sliders exist (volume 0 mutes).
+- **High-score table seeding:** AGENTS.md asks for beatable ninja-themed Easter-egg scores;
+  Milestone 23 chose empty placeholders instead. The owner should confirm which is wanted.
+- **Audio:** a distinct multiplier-increase sound (only the Level-up cue plays today).
+- **Death animation by cause** ("where practical"): one shared collapse today.
 
 Before working, verify the actual repository state rather than assuming this roadmap is perfectly current.

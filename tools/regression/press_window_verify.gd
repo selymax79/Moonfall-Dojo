@@ -41,7 +41,10 @@ func geometry_checks() -> void:
 		for side in [-1, 1]:
 			force_first(m, kind, side)
 			var actor = m.active_threats[0].actor
-			check(is_equal_approx(absf(actor.position.x - p.position.x), T.SPAWN_DISTANCE), "spawn distance matches")
+			check(is_equal_approx(absf(actor.position.x - p.position.x), T.spawn_distance(kind)), "spawn distance matches")
+			# The nearest artwork edge (ENTRY_MARGIN ahead of the centre) starts beyond the screen edge.
+			var nearest_art_x: float = actor.position.x - side * T.ENTRY_MARGIN[kind]
+			check(nearest_art_x >= 640.0 if side == 1 else nearest_art_x <= 0.0, "threat %d side %d spawns fully off-screen" % [kind, side])
 			if kind < 2:
 				check(is_equal_approx(actor.get_node("Hurtbox").shape.size.x, 2.0 * T.ASSASSIN_HALF_WIDTH), "assassin width matches")
 			elif kind == 2:

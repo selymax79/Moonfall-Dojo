@@ -8,7 +8,7 @@ func late_checks():
 			[49,139.0,0.0,0.25],[50,140.0,0.0,0.25],[60,140.0,0.0,0.25],[1000,140.0,0.0,0.25]]:
 		var m=fresh(row[0])
 		check(m.level==row[0] and m.get_multiplier_half_units()==2,"late start Level x1")
-		check(is_equal_approx(m.get_spawn_speed(0),row[1]),"late speed curve Level %d" % row[0])
+		check(is_equal_approx(m.get_base_speed(),row[1]),"late speed curve Level %d" % row[0])
 		check(is_equal_approx(m.get_spawn_gap(),row[2]),"late gap band Level %d" % row[0])
 		check(is_equal_approx(m.get_windup_duration(),row[3]),"late wind-up Level %d" % row[0])
 		m.free()
@@ -19,7 +19,7 @@ func late_checks():
 		var base: float=105.0 if level_value==15 else minf(110.0+(level_value-20),140.0)
 		for kind in range(4):
 			force_first(m,kind,-1)
-			var expected: float=base*(1.15 if kind==2 else (1.25 if kind==3 else 1.0))
+			var expected: float=base*(1.15 if kind==2 else (1.25 if kind==3 else 1.0))*m.ThreatTiming.spawn_distance(kind)/240.0
 			check(is_equal_approx(m.active_threats[0].actor.movement_speed,expected),"first spawn correct higher-start speed")
 			if kind<2: check(is_equal_approx(m.active_threats[0].actor.windup_duration,m.get_windup_duration()),"assassin receives Level wind-up")
 		m.free()

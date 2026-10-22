@@ -21,7 +21,7 @@ func fingerprint(m) -> Array:
 
 func fairness_wait(m) -> bool:
 	if m.pending_type < 0 or m.encounter_time < m.next_spawn_at or m.active_threats.size() >= m.get_max_unresolved(): return false
-	return m.plan_pending_press() < 0.0
+	return m.plan_pending_press().is_empty()
 
 func sample(level_value: int, seed_value: int, count: int) -> Array:
 	var m = fixed(level_value,seed_value)

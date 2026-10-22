@@ -70,7 +70,8 @@ func feature_run():
 	check(m.game_state == m.GameState.RUN and m.run_start_level == 7 and m.level == 7 and m.get_multiplier_half_units() == 2, "Start Level row starts Level7 x1")
 	check(m.score == 0 and m.kills == 0 and m.dodges == 0, "higher start counters")
 	check(m.get_spawn_gap() == 0.45 and m.get_max_unresolved() == 2, "Level7 scheduler")
-	check(m.active_threats[0].actor.movement_speed == (112.5 if m.active_threats[0].type == 3 else (90.0*1.15 if m.active_threats[0].type == 2 else 90.0)), "Level7 initial speed")
+	var first_kind: int = m.active_threats[0].type
+	check(is_equal_approx(m.active_threats[0].actor.movement_speed, 90.0*[1.0,1.0,1.15,1.25][first_kind]*m.ThreatTiming.spawn_distance(first_kind)/240.0), "Level7 initial speed")
 	m.records.entries.clear()
 	for index in range(10): m.records.entries.append({"initials":"OLD","score":1000000})
 	# The removed development shortcuts must stay inert, playing or paused.
